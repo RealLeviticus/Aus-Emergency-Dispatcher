@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SplashProfileId } from '../config/splash';
 import DispatchConsole from '../components/DispatchConsole';
 import { ScenePacksDialog } from '../components/ScenePacksDialog';
+import { CrewCentreDialog } from '../components/CrewCentreDialog';
 import { account } from '../lib/account';
 import { sim } from '../lib/sim';
 
@@ -100,7 +101,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<AppId>('emergency');
   const [startOpen, setStartOpen] = useState(false);
   const [clock, setClock] = useState('');
-  const [raafvOverride, setRaafvOverrideState] = useState(false);
+  const [crewDialog, setCrewDialog] = useState(false);
   const [packPrompt, setPackPrompt] = useState(false);
 
   // On launch, if a required scene-object pack is missing (and the user hasn't
@@ -119,17 +120,6 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    Promise.resolve(account.raafvOverride())
-      .then((v) => setRaafvOverrideState(v === true))
-      .catch(() => undefined);
-  }, []);
-  const toggleRaafvOverride = async () => {
-    const next = !raafvOverride;
-    setRaafvOverrideState(next);
-    await account.setRaafvOverride(next); // fires 'entitlements:changed' -> reload below
-  };
 
   const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const demo = params?.get('demo') ?? undefined;
@@ -271,15 +261,18 @@ export default function Home() {
               type="button"
               className="win-taskitem"
               style={{ opacity: 0.7 }}
-              title="Locked — sign in with your RAAF Virtual crew centre account from the operator menu."
-              onClick={() => setStartOpen(false)}
+              title="Locked — sign in with your RAAF Virtual crew centre account to unlock."
+              onClick={() => {
+                setStartOpen(false);
+                setCrewDialog(true);
+              }}
             >
               <span
                 className="inline-block h-3.5 w-3.5"
                 style={{ background: '#8a8a8a', border: '1px solid #5a5a5a' }}
                 aria-hidden="true"
               />
-              RAAFv Tasking (locked — sign in to unlock)
+              RAAFv Tasking (locked — click to sign in)
             </button>
           )}
 
@@ -325,25 +318,6 @@ export default function Home() {
                     type="button"
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#000080] hover:text-white"
                     onClick={() => {
-                      void toggleRaafvOverride();
-                      setStartOpen(false);
-                    }}
-                    title="Developer switch: opens RAAFv Tasking without signing in. Normal unlock is the crew centre sign-in in the operator menu."
-                  >
-                    <span
-                      className="inline-block h-[18px] w-[18px]"
-                      style={{ background: raafvOverride ? '#2e5a2e' : '#808080', border: '1px solid #5a5a5a' }}
-                      aria-hidden="true"
-                    />
-                    RAAFv local unlock: {raafvOverride ? 'ON' : 'OFF'}
-                  </button>
-                </li>
-                <li className="my-1 border-t border-[#808080]" />
-                <li>
-                  <button
-                    type="button"
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-[#000080] hover:text-white"
-                    onClick={() => {
                       setStartOpen(false);
                       winControl('close');
                     }}
@@ -357,6 +331,10 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {crewDialog && (
+        <CrewCentreDialog onClose={() => setCrewDialog(false)} onSubmit={(key) => account.linkPhpvms(key)} />
+      )}
 
       {packPrompt && <ScenePacksDialog firstRun onClose={() => setPackPrompt(false)} />}
     </>

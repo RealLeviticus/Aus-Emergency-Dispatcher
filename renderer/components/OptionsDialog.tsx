@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isMuted, setMuted } from '../lib/audio';
-import { account } from '../lib/account';
 import { sim } from '../lib/sim';
 import { updates, useUpdateState } from '../lib/updates';
 import type { SplashProfileId } from '../config/splash';
@@ -19,7 +18,6 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
   const [onTop, setOnTop] = useState(false);
   const [profile, setProfile] = useState<SplashProfileId>('emergency');
   const [packPrompt, setPackPrompt] = useState(true);
-  const [raafv, setRaafv] = useState(false);
   const update = useUpdateState();
 
   useEffect(() => {
@@ -29,9 +27,6 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
       .catch(() => undefined);
     Promise.resolve(sim.addonPromptSuppressed())
       .then((v) => setPackPrompt(v !== true))
-      .catch(() => undefined);
-    Promise.resolve(account.raafvOverride())
-      .then((v) => setRaafv(v === true))
       .catch(() => undefined);
   }, []);
 
@@ -176,25 +171,6 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
                 Open MSFS Community folder
               </button>
             </div>
-          </fieldset>
-
-          <fieldset className="win-group p-2">
-            <legend className="px-1">Testing</legend>
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={raafv}
-                onChange={(e) => {
-                  setRaafv(e.target.checked);
-                  void account.setRaafvOverride(e.target.checked);
-                }}
-              />
-              Unlock RAAFv Tasking without signing in
-            </label>
-            <p className="mt-1 text-[11px] text-[#606060]">
-              Developer switch for FSLTL and tasking tests. Leave it off — RAAFv should be unlocked by signing in with
-              your crew centre account from the operator menu.
-            </p>
           </fieldset>
         </div>
 

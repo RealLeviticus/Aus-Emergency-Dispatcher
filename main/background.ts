@@ -48,7 +48,6 @@ const splashMinDuration = 1800;
 const SPLASH_BACKSTOP_MS = 60_000;
 const preferences = new Store<{
   splashProfile: SplashProfileId;
-  raafvOverride?: boolean;
   /** user ticked "don't show the scene-pack setup prompt again" */
   hidePackPrompt?: boolean;
 }>({
@@ -499,19 +498,18 @@ ipcMain.on('openApp', async () => {
 ipcMain.handle('getAppVersion', () => app.getVersion());
 
 // Which app surfaces the operator is entitled to. The public emergency console
-// is always available. RAAFv normally requires a linked Discord account with the
-// RAAFv role — but a local testing override (Start ▸ "RAAFv local unlock", or the
-// locked taskbar pill) flips it on without Discord, for FSLTL / tasking testing.
+// is always available. RAAFv requires a verified identity — in practice a RAAFv
+// crew centre API key, checked against the crew centre itself.
+//
+// There used to be a local override here ("RAAFv local unlock") that opened
+// RAAFv with no identity at all, for FSLTL / tasking testing. It is gone: it
+// meant the lock could be undone from inside the app, so RAAFv was never really
+// locked for anyone who found the switch. A stale `raafvOverride` left in an
+// existing preferences file is simply no longer read.
 ipcMain.handle('getEntitlements', () => ({
   emergency: true,
-  raafv: accounts.current()?.entitlements?.raafv === true || preferences.get('raafvOverride', false) === true,
+  raafv: accounts.current()?.entitlements?.raafv === true,
 }));
-ipcMain.handle('auth:raafvOverrideGet', () => preferences.get('raafvOverride', false) === true);
-ipcMain.handle('auth:raafvOverride', (_e, on: boolean) => {
-  preferences.set('raafvOverride', Boolean(on));
-  notifyEntitlements();
-  return preferences.get('raafvOverride', false) === true;
-});
 ipcMain.handle('auth:discordConfigured', () => discordOauthConfigured());
 function notifyEntitlements(): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('entitlements:changed', null);
@@ -521,10 +519,14 @@ ipcMain.handle('auth:discordLink', async () => {
   if (!cur) return { ok: false, error: 'Sign in to a local operator profile first.' };
   const res = await linkDiscord();
   if (res.ok && res.user) {
-    accounts.setDiscord(cur.id, { discord: res.user, raafv: Boolean(res.raafv) });
+    // Discord no longer unlocks RAAFv. Holding a role in a Discord server says
+    // someone is in that server; it does not say they are a pilot on the RAAFv
+    // roster, which is what the crew centre key actually proves. The link stays
+    // for identity, but the entitlement comes from the crew centre alone.
+    accounts.setDiscord(cur.id, { discord: res.user, raafv: false });
     notifyEntitlements();
   }
-  return res;
+  return { ...res, raafv: false, roleReason: 'Discord no longer unlocks RAAFv — sign in with your crew centre key.' };
 });
 ipcMain.handle('auth:discordUnlink', () => {
   const cur = accounts.current();
@@ -536,16 +538,23 @@ ipcMain.handle('auth:discordUnlink', () => {
 // --- RAAFv crew centre (phpVMS) sign-in -------------------------------
 ipcMain.handle('auth:phpvmsConfig', () => phpvmsConfig());
 ipcMain.handle('auth:phpvmsLink', async (_e, apiKey: string) => {
-  const cur = accounts.current();
-  if (!cur) return { ok: false, error: 'Sign in to a local operator profile first.' };
   const res = await linkPhpvms(apiKey);
-  if (res.ok && res.user) {
-    accounts.setPhpvms(cur.id, {
-      phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
-      raafv: Boolean(res.raafv),
+  if (!res.ok || !res.user) return res;
+  // The key alone is enough to get in. If there is no local operator yet, make
+  // one from the verified crew centre profile rather than sending the pilot off
+  // to fill in a form first — we already know their name and pilot ident.
+  const cur =
+    accounts.current() ??
+    accounts.create({
+      name: res.user.username,
+      callsign: res.user.ident ?? '',
+      role: res.user.rank ?? 'RAAFv pilot',
     });
-    notifyEntitlements();
-  }
+  accounts.setPhpvms(cur.id, {
+    phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
+    raafv: Boolean(res.raafv),
+  });
+  notifyEntitlements();
   return res;
 });
 ipcMain.handle('auth:phpvmsUnlink', () => {

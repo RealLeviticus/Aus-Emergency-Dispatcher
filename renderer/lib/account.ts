@@ -49,10 +49,6 @@ export const account = {
   linkPhpvms: (apiKey: string) =>
     Promise.resolve(ipc()?.invoke?.('auth:phpvmsLink', apiKey)) as Promise<PhpvmsLinkResult | undefined>,
   unlinkPhpvms: () => Promise.resolve(ipc()?.invoke?.('auth:phpvmsUnlink')) as Promise<Account | null | undefined>,
-  /** Local, no-Discord RAAFv unlock for testing (FSLTL / tasking). */
-  raafvOverride: () => Promise.resolve(ipc()?.invoke?.('auth:raafvOverrideGet')) as Promise<boolean | undefined>,
-  setRaafvOverride: (on: boolean) =>
-    Promise.resolve(ipc()?.invoke?.('auth:raafvOverride', on)) as Promise<boolean | undefined>,
 };
 
 /** Current operator + the roster, with helpers that keep both in sync. */
