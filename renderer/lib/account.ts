@@ -8,7 +8,8 @@ export type Account = {
   createdAt: number;
   lastSeenAt: number;
   discord?: { id: string; username: string; avatar: string | null };
-  entitlements?: { raafv?: boolean };
+  phpvms?: { id: string; ident: string | null; username: string; rank: string | null };
+  entitlements?: { raafv?: boolean; raafvVia?: { discord?: boolean; phpvms?: boolean } };
 };
 
 export type DiscordLinkResult = {
@@ -17,6 +18,16 @@ export type DiscordLinkResult = {
   raafv?: boolean;
   roleReason?: string;
   user?: { id: string; username: string; avatar: string | null };
+};
+
+export type PhpvmsConfig = { configured: boolean; name: string; url: string; profileUrl: string };
+
+export type PhpvmsLinkResult = {
+  ok: boolean;
+  error?: string;
+  raafv?: boolean;
+  roleReason?: string;
+  user?: { id: string; ident: string | null; username: string; rank: string | null; avatar: string | null };
 };
 
 const ipc = () => (typeof window !== 'undefined' ? window.ipc : undefined);
@@ -34,6 +45,10 @@ export const account = {
   discordConfigured: () => Promise.resolve(ipc()?.invoke?.('auth:discordConfigured')) as Promise<boolean | undefined>,
   linkDiscord: () => Promise.resolve(ipc()?.invoke?.('auth:discordLink')) as Promise<DiscordLinkResult | undefined>,
   unlinkDiscord: () => Promise.resolve(ipc()?.invoke?.('auth:discordUnlink')) as Promise<Account | null | undefined>,
+  phpvmsConfig: () => Promise.resolve(ipc()?.invoke?.('auth:phpvmsConfig')) as Promise<PhpvmsConfig | null | undefined>,
+  linkPhpvms: (apiKey: string) =>
+    Promise.resolve(ipc()?.invoke?.('auth:phpvmsLink', apiKey)) as Promise<PhpvmsLinkResult | undefined>,
+  unlinkPhpvms: () => Promise.resolve(ipc()?.invoke?.('auth:phpvmsUnlink')) as Promise<Account | null | undefined>,
   /** Local, no-Discord RAAFv unlock for testing (FSLTL / tasking). */
   raafvOverride: () => Promise.resolve(ipc()?.invoke?.('auth:raafvOverrideGet')) as Promise<boolean | undefined>,
   setRaafvOverride: (on: boolean) =>
@@ -98,6 +113,18 @@ export function useAccount() {
     await account.unlinkDiscord();
     await refresh();
   }, [refresh]);
+  const linkPhpvms = useCallback(
+    async (apiKey: string) => {
+      const r = await account.linkPhpvms(apiKey);
+      await refresh();
+      return r;
+    },
+    [refresh],
+  );
+  const unlinkPhpvms = useCallback(async () => {
+    await account.unlinkPhpvms();
+    await refresh();
+  }, [refresh]);
 
   return {
     current,
@@ -111,5 +138,7 @@ export function useAccount() {
     remove,
     linkDiscord,
     unlinkDiscord,
+    linkPhpvms,
+    unlinkPhpvms,
   };
 }

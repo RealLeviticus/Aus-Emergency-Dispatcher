@@ -20,6 +20,13 @@ import {
 } from './addonpacks';
 import { contactTitles, fsltlStatus } from './fsltl';
 import { isConfigured as discordOauthConfigured, linkDiscord } from './discord-oauth';
+import {
+  getConfig as phpvmsConfig,
+  hasStoredKey as hasStoredRaafvKey,
+  linkPhpvms,
+  revalidate as revalidatePhpvms,
+  unlinkPhpvms,
+} from './phpvms-auth';
 import { SyncClient, DEFAULT_SYNC_URL, type RemoteObject, type SyncStatus, type PeerPresence } from './syncclient';
 import { discord, DEFAULT_DISCORD_APP_ID } from './discord';
 import { getUpdateState, registerUpdaterIpc, stopUpdater } from './updater';
@@ -284,6 +291,8 @@ app.whenReady().then(() => {
   // If the user has dropped the third-party pack ZIPs into the AddonPacks folder,
   // extract them into every Community folder (licences forbid us bundling them).
   void autoInstallAddonsIfPresent();
+  // Confirm the stored crew centre key is still good. Never blocks startup.
+  void revalidateRaafv();
 });
 
 /** A plain-text credits / licence note in the data folder (Help ▸ Model credits). */
@@ -523,6 +532,53 @@ ipcMain.handle('auth:discordUnlink', () => {
   notifyEntitlements();
   return accounts.current();
 });
+
+// --- RAAFv crew centre (phpVMS) sign-in -------------------------------
+ipcMain.handle('auth:phpvmsConfig', () => phpvmsConfig());
+ipcMain.handle('auth:phpvmsLink', async (_e, apiKey: string) => {
+  const cur = accounts.current();
+  if (!cur) return { ok: false, error: 'Sign in to a local operator profile first.' };
+  const res = await linkPhpvms(apiKey);
+  if (res.ok && res.user) {
+    accounts.setPhpvms(cur.id, {
+      phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
+      raafv: Boolean(res.raafv),
+    });
+    notifyEntitlements();
+  }
+  return res;
+});
+ipcMain.handle('auth:phpvmsUnlink', () => {
+  unlinkPhpvms();
+  const cur = accounts.current();
+  if (cur) accounts.setPhpvms(cur.id, null);
+  notifyEntitlements();
+  return accounts.current();
+});
+
+/**
+ * Re-check the stored crew centre key on launch, so a pilot who has left RAAFv
+ * (or regenerated their key) loses RAAFv tasking rather than keeping it forever
+ * on a stale local flag. Runs in the background and never blocks startup; being
+ * offline leaves the existing entitlement alone.
+ */
+async function revalidateRaafv(): Promise<void> {
+  if (!hasStoredRaafvKey()) return;
+  const res = await revalidatePhpvms();
+  const cur = accounts.current();
+  if (!res || !cur) return;
+  if (res.ok && res.user) {
+    accounts.setPhpvms(cur.id, {
+      phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
+      raafv: Boolean(res.raafv),
+    });
+  } else if (/did not accept/i.test(res.error ?? '')) {
+    accounts.setPhpvms(cur.id, null);
+  } else {
+    return; // transient (offline, crew centre down) — leave things as they are
+  }
+  notifyEntitlements();
+}
 
 ipcMain.handle('getSplashProfile', () => preferences.get('splashProfile', 'emergency'));
 

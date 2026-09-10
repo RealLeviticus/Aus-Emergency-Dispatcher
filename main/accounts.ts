@@ -16,10 +16,16 @@ export type Account = {
   role: string;
   createdAt: number;
   lastSeenAt: number;
-  /** linked Discord identity (only needed for RAAFv) */
+  /** linked Discord identity (one of two ways to hold RAAFv access) */
   discord?: { id: string; username: string; avatar: string | null };
-  /** what this operator may open */
-  entitlements?: { raafv?: boolean };
+  /** linked RAAFv crew centre (phpVMS) pilot — the other, and the stronger one */
+  phpvms?: { id: string; ident: string | null; username: string; rank: string | null };
+  /**
+   * What this operator may open. `raafv` is the answer; `raafvVia` records
+   * which link granted it, so unlinking one identity does not revoke access the
+   * other still justifies.
+   */
+  entitlements?: { raafv?: boolean; raafvVia?: { discord?: boolean; phpvms?: boolean } };
 };
 
 type Shape = { accounts: Account[]; currentId: string | null };
@@ -28,6 +34,51 @@ const store = new Store<Shape>({ name: 'accounts', defaults: { accounts: [], cur
 
 function clean(s: string, max: number): string {
   return String(s ?? '').trim().slice(0, max);
+}
+
+/**
+ * Attach or clear one of the two RAAFv identity links, then recompute the
+ * entitlement from BOTH. A member who signed in with their crew centre key and
+ * also linked Discord must not lose RAAFv access by unlinking one of them.
+ */
+function setLink(
+  id: string,
+  which: 'discord' | 'phpvms',
+  link: { profile: Account['discord'] | Account['phpvms']; raafv: boolean } | null,
+): Account | null {
+  const list = store.get('accounts', []);
+  const acc = list.find((a) => a.id === id);
+  if (!acc) return null;
+
+  // Accounts linked before raafvVia existed only recorded the boolean. Infer
+  // the granter from what they have, or an existing Discord user would lose
+  // access the moment they touched either link.
+  const via = acc.entitlements?.raafvVia ?? {
+    discord: Boolean(acc.discord) && acc.entitlements?.raafv === true,
+    phpvms: Boolean(acc.phpvms) && acc.entitlements?.raafv === true,
+  };
+  const grants: Record<'discord' | 'phpvms', boolean> = {
+    discord: Boolean(acc.discord && via.discord),
+    phpvms: Boolean(acc.phpvms && via.phpvms),
+  };
+
+  if (link) {
+    if (which === 'discord') acc.discord = link.profile as Account['discord'];
+    else acc.phpvms = link.profile as Account['phpvms'];
+    grants[which] = link.raafv;
+  } else {
+    if (which === 'discord') delete acc.discord;
+    else delete acc.phpvms;
+    grants[which] = false;
+  }
+
+  acc.entitlements = {
+    ...(acc.entitlements ?? {}),
+    raafv: grants.discord || grants.phpvms,
+    raafvVia: { ...grants },
+  };
+  store.set('accounts', list);
+  return acc;
 }
 
 export const accounts = {
@@ -69,23 +120,20 @@ export const accounts = {
     return acc;
   },
 
-  /** Attach (or clear, with null) a Discord identity + RAAFv entitlement. */
+  /** Attach (or clear, with null) a Discord identity. */
   setDiscord(
     id: string,
     link: { discord: Account['discord']; raafv: boolean } | null,
   ): Account | null {
-    const list = store.get('accounts', []);
-    const acc = list.find((a) => a.id === id);
-    if (!acc) return null;
-    if (link) {
-      acc.discord = link.discord;
-      acc.entitlements = { ...(acc.entitlements ?? {}), raafv: link.raafv };
-    } else {
-      delete acc.discord;
-      acc.entitlements = { ...(acc.entitlements ?? {}), raafv: false };
-    }
-    store.set('accounts', list);
-    return acc;
+    return setLink(id, 'discord', link ? { profile: link.discord, raafv: link.raafv } : null);
+  },
+
+  /** Attach (or clear, with null) a RAAFv crew centre pilot. */
+  setPhpvms(
+    id: string,
+    link: { phpvms: Account['phpvms']; raafv: boolean } | null,
+  ): Account | null {
+    return setLink(id, 'phpvms', link ? { profile: link.phpvms, raafv: link.raafv } : null);
   },
 
   switch(id: string | null): Account | null {

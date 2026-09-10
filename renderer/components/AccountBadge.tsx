@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Account } from '../lib/account';
+import { account as accountApi, type Account, type PhpvmsConfig, type PhpvmsLinkResult } from '../lib/account';
 
 type AccountApi = {
   current: Account | null;
@@ -11,12 +11,15 @@ type AccountApi = {
   remove: (id: string) => Promise<void>;
   linkDiscord: () => Promise<{ ok: boolean; error?: string; raafv?: boolean; roleReason?: string } | undefined>;
   unlinkDiscord: () => Promise<void>;
+  linkPhpvms: (apiKey: string) => Promise<PhpvmsLinkResult | undefined>;
+  unlinkPhpvms: () => Promise<void>;
 };
 
 /** Person icon + operator menu, sits in the status bar next to the clock. */
 export function AccountBadge({ account }: { account: AccountApi }) {
   const [open, setOpen] = useState(false);
   const [dialog, setDialog] = useState<null | { mode: 'new' | 'edit'; id?: string }>(null);
+  const [crewDialog, setCrewDialog] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,7 +61,11 @@ export function AccountBadge({ account }: { account: AccountApi }) {
                 <b className={cur.entitlements?.raafv ? 'text-[#1a6a1a]' : 'text-[#404040]'}>
                   {cur.entitlements?.raafv ? 'granted' : 'not linked'}
                 </b>
-                {cur.discord ? ` · ${cur.discord.username}` : ''}
+                {cur.phpvms
+                  ? ` · ${cur.phpvms.username}${cur.phpvms.rank ? ` (${cur.phpvms.rank})` : ''}`
+                  : cur.discord
+                    ? ` · ${cur.discord.username}`
+                    : ''}
               </div>
             </div>
           )}
@@ -74,6 +81,12 @@ export function AccountBadge({ account }: { account: AccountApi }) {
           {cur && (
             <MenuRow onClick={() => (setOpen(false), setDialog({ mode: 'edit', id: cur.id }))}>Edit profile…</MenuRow>
           )}
+          {cur &&
+            (cur.phpvms ? (
+              <MenuRow onClick={() => (setOpen(false), account.unlinkPhpvms())}>Sign out of RAAFv crew centre</MenuRow>
+            ) : (
+              <MenuRow onClick={() => (setOpen(false), setCrewDialog(true))}>Sign in with RAAFv crew centre…</MenuRow>
+            ))}
           {cur &&
             (cur.discord ? (
               <MenuRow onClick={() => (setOpen(false), account.unlinkDiscord())}>Unlink Discord</MenuRow>
@@ -92,6 +105,10 @@ export function AccountBadge({ account }: { account: AccountApi }) {
           <MenuRow onClick={() => (setOpen(false), setDialog({ mode: 'new' }))}>New operator…</MenuRow>
           {cur && <MenuRow onClick={() => (setOpen(false), account.signOut())}>Sign out</MenuRow>}
         </div>
+      )}
+
+      {crewDialog && (
+        <CrewCentreDialog onClose={() => setCrewDialog(false)} onSubmit={(key) => account.linkPhpvms(key)} />
       )}
 
       {dialog && (
@@ -136,6 +153,115 @@ function PersonGlyph() {
       <circle cx="6" cy="3.4" r="2.4" fill="currentColor" />
       <path d="M1.2 11c0-2.7 2.1-4.3 4.8-4.3S10.8 8.3 10.8 11z" fill="currentColor" />
     </svg>
+  );
+}
+
+/**
+ * RAAFv sign-in. phpVMS gives every pilot an API key on their own profile, so
+ * this is the whole flow: paste it once, we ask the crew centre who it belongs
+ * to. Deliberately says where the key lives and what happens to it — people are
+ * right to be wary of pasting a credential into a third-party app.
+ */
+function CrewCentreDialog({
+  onClose,
+  onSubmit,
+}: {
+  onClose: () => void;
+  onSubmit: (apiKey: string) => Promise<PhpvmsLinkResult | undefined>;
+}) {
+  const [cfg, setCfg] = useState<PhpvmsConfig | null>(null);
+  const [key, setKey] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void accountApi.phpvmsConfig().then((c) => {
+      if (live) setCfg(c ?? null);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const name = cfg?.name ?? 'RAAF Virtual';
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30" onMouseDown={onClose}>
+      <div className="win-window w-[420px]" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="win-titlebar">
+          <span className="flex-1">Sign in with {name}</span>
+          <button type="button" className="win-titlebar-btn" aria-label="Close" onClick={onClose}>
+            {'✕'}
+          </button>
+        </div>
+        <form
+          className="space-y-2 p-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (!key.trim() || busy) return;
+            setBusy(true);
+            setError(null);
+            const r = await onSubmit(key.trim());
+            setBusy(false);
+            if (!r?.ok) {
+              setError(r?.error ?? 'Sign-in failed.');
+              return;
+            }
+            if (!r.raafv) {
+              setError(`Signed in, but RAAFv tasking was not granted (${r.roleReason ?? 'unknown reason'}).`);
+              return;
+            }
+            onClose();
+          }}
+        >
+          <p className="text-[#404040]">
+            Use your existing {name} crew centre account — no new login. Your API key is on your crew centre profile
+            page.
+          </p>
+          <label className="flex items-center gap-2">
+            <span className="w-[64px] shrink-0 text-right text-[#404040]">API key</span>
+            <input
+              autoFocus
+              type="password"
+              className="win-sunken min-w-0 flex-1 px-2 py-[3px] font-mono"
+              value={key}
+              onChange={(e) => (setKey(e.target.value), setError(null))}
+              placeholder="paste it here"
+              maxLength={128}
+              spellCheck={false}
+            />
+          </label>
+          {cfg?.profileUrl && (
+            <p className="pl-[72px] text-[11px] text-[#404040]">
+              <a className="underline" href={cfg.profileUrl} target="_blank" rel="noreferrer">
+                Open my crew centre profile
+              </a>
+            </p>
+          )}
+          <p className="pl-[72px] text-[11px] text-[#404040]">
+            The key is stored encrypted on this PC and only ever sent to {name}. To revoke access, regenerate it on your
+            profile.
+          </p>
+          {error && (
+            <p className="win-sunken px-2 py-1 text-[11px] text-[#a00000]" role="alert">
+              {error}
+            </p>
+          )}
+          <div
+            className="flex items-center gap-2 border-t-2 border-[#808080] pt-2"
+            style={{ boxShadow: '0 1px 0 #fff inset' }}
+          >
+            <button type="submit" className="win-btn is-default" disabled={!key.trim() || busy}>
+              {busy ? 'Checking…' : 'Sign in'}
+            </button>
+            <button type="button" className="win-btn" onClick={onClose}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
