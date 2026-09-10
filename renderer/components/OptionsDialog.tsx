@@ -189,10 +189,11 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
                   void account.setRaafvOverride(e.target.checked);
                 }}
               />
-              Unlock RAAFv Tasking without a Discord role
+              Unlock RAAFv Tasking without signing in
             </label>
             <p className="mt-1 text-[11px] text-[#606060]">
-              Local only — the server still checks entitlements for anything shared.
+              Developer switch for FSLTL and tasking tests. Leave it off — RAAFv should be unlocked by signing in with
+              your crew centre account from the operator menu.
             </p>
           </fieldset>
         </div>

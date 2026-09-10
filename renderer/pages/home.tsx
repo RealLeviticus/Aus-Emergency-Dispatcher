@@ -93,8 +93,10 @@ function winControl(action: 'minimize' | 'maximize' | 'close') {
 }
 
 export default function Home() {
-  // Optimistic: both windows open. Real gating (getEntitlements → raafv:false) can revoke.
-  const [entitlements, setEntitlements] = useState<Entitlements>({ emergency: true, raafv: true });
+  // Start LOCKED. This used to open optimistically and let getEntitlements
+  // revoke, which meant RAAFv was reachable for the moment before the IPC
+  // resolved — and stayed reachable if it never did. A gate has to fail closed.
+  const [entitlements, setEntitlements] = useState<Entitlements>({ emergency: true, raafv: false });
   const [activeId, setActiveId] = useState<AppId>('emergency');
   const [startOpen, setStartOpen] = useState(false);
   const [clock, setClock] = useState('');
@@ -175,7 +177,9 @@ export default function Home() {
     return () => window.clearInterval(id);
   }, []);
 
-  const openApps = useMemo(() => APPS.filter((a) => entitlements[a.entitlement] !== false), [entitlements]);
+  // `!== false` let an absent or malformed entitlement through; require a
+  // positive grant instead, so an unreadable reply locks rather than opens.
+  const openApps = useMemo(() => APPS.filter((a) => entitlements[a.entitlement] === true), [entitlements]);
 
   // Derived, not corrected in an effect: if the selected app is revoked (RAAFv
   // entitlement lost) we simply fall back while rendering, instead of setting
@@ -267,15 +271,15 @@ export default function Home() {
               type="button"
               className="win-taskitem"
               style={{ opacity: 0.7 }}
-              title="Locked — needs RAAFv Discord role. Click to unlock locally for testing (FSLTL / tasking)."
-              onClick={toggleRaafvOverride}
+              title="Locked — sign in with your RAAF Virtual crew centre account from the operator menu."
+              onClick={() => setStartOpen(false)}
             >
               <span
                 className="inline-block h-3.5 w-3.5"
                 style={{ background: '#8a8a8a', border: '1px solid #5a5a5a' }}
                 aria-hidden="true"
               />
-              RAAFv Tasking (locked — click to unlock)
+              RAAFv Tasking (locked — sign in to unlock)
             </button>
           )}
 
@@ -324,7 +328,7 @@ export default function Home() {
                       void toggleRaafvOverride();
                       setStartOpen(false);
                     }}
-                    title="Enable the RAAFv Tasking Dispatcher without a Discord link, for testing"
+                    title="Developer switch: opens RAAFv Tasking without signing in. Normal unlock is the crew centre sign-in in the operator menu."
                   >
                     <span
                       className="inline-block h-[18px] w-[18px]"
