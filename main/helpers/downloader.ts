@@ -26,12 +26,7 @@ export async function download(
 
   const finalLength = length || parseInt(response.headers.get('Content-Length') || '0', 10);
   const reader = body.getReader();
-  let writer: fs.WriteStream;
-  try {
-    writer = fs.createWriteStream(targetFile);
-  } catch (err) {
-    throw err;
-  }
+  const writer = fs.createWriteStream(targetFile);
 
   try {
     await streamWithProgress(finalLength, reader, writer, progressCallback);
@@ -39,10 +34,10 @@ export async function download(
     // Clean up partial file on failure
     try {
       writer.destroy();
-    } catch { }
+    } catch {}
     try {
       if (fs.existsSync(targetFile)) fs.unlinkSync(targetFile);
-    } catch { }
+    } catch {}
     throw err;
   }
 

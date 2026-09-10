@@ -1,6 +1,5 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 
-// Your existing ipc handler with added invoke method
 const handler = {
   send(channel: string, value: unknown) {
     ipcRenderer.send(channel, value);
@@ -15,30 +14,22 @@ const handler = {
   },
 };
 
-const preloadPages = async () => {
-  const pagesToPreload = [
-    "/", // Landing page
-    "/home",
-    "/settings",
-  ];
-
-  for (const page of pagesToPreload) {
-    try {
-      await fetch(page, { cache: "force-cache" });
-      console.log(`[Preload] Preloaded: ${page}`);
-    } catch (error) {
-      console.warn(`[Preload] Failed to preload ${page}:`, error);
-    }
-  }
-};
-
-// Expose to the window
 contextBridge.exposeInMainWorld('ipc', handler);
 
-// Automatically preload pages
-(async () => {
-  console.log("[Preload] Starting automatic page preloading...");
-  await preloadPages();
+/**
+ * Warm the routes the console actually navigates to, so the first paint after
+ * the splash is instant. `/settings` used to be in this list; it was an
+ * unreachable page and has been removed. Failures are silent by design — this
+ * is an optimisation, and a noisy console on every window is not worth it.
+ */
+void (async () => {
+  for (const page of ['/', '/home']) {
+    try {
+      await fetch(page, { cache: 'force-cache' });
+    } catch {
+      /* the route still loads normally on navigation */
+    }
+  }
 })();
 
 export type IpcHandler = typeof handler;

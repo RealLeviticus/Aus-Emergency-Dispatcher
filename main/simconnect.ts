@@ -17,13 +17,10 @@ import {
   RawBuffer,
 } from 'node-simconnect';
 import { liveryIndex } from './liveries';
-import { writeDirectPln } from './gps';
+import { tdsGtnxi, writeDirectPln } from './gps';
 import { getSceneObjects, sceneForJob, sceneHeading, sceneObjectTitles, setSceneSimProfile } from './scenes';
 
 const EVT_BASE = 5000;
-/** GPS instrument prefixes we fire H: events at, so it works however it's set up. */
-const GTN_PREFIXES = ['GTN750', 'GTN750_2', 'GTN650', 'AS1000_MFD'];
-
 const DEF_POSITION = 1;
 const REQ_POSITION = 1;
 // LIVERY NAME is an MSFS 2024-only simvar; kept in its own definition so it can
@@ -50,13 +47,15 @@ const AIRPORT_RANGE_NM = 550;
 
 export type Airport = { ident: string; lat: number; lon: number; altFt: number };
 
-/** PMS50 GTN750 "Create User Waypoint" page index (from the events doc). */
-const GTN_PAGE_CREATE_WAYPOINT = 120;
-
 export type GpsStatus = {
+  /** PMS50 GTN750 gauge is present in the sim (from its L: vars) */
   gtnDetected: boolean;
   gtnPremium: boolean;
   currentPage: number;
+  /** TDS GTNXi is installed on this PC (a filesystem check, not a sim var) */
+  tdsDetected: boolean;
+  /** what proved the GTNXi install */
+  tdsEvidence: string | null;
   lastAction: string | null;
   lastResult: string | null;
 };
@@ -275,6 +274,8 @@ export class SimBridge extends EventEmitter {
     gtnDetected: false,
     gtnPremium: false,
     currentPage: 0,
+    tdsDetected: false,
+    tdsEvidence: null,
     lastAction: null,
     lastResult: null,
   };
@@ -295,7 +296,22 @@ export class SimBridge extends EventEmitter {
 
   start(): void {
     this.stopped = false;
+    void this.refreshTdsStatus();
     void this.connect();
+  }
+
+  /**
+   * Look for a TDS GTNXi install. Unlike the PMS50 check this is a filesystem
+   * probe, not a sim var, so it works with the sim closed and is refreshed on
+   * start and on every export rather than polled.
+   */
+  private async refreshTdsStatus(): Promise<void> {
+    try {
+      const tds = await tdsGtnxi();
+      this.gps = { ...this.gps, tdsDetected: tds.installed, tdsEvidence: tds.evidence };
+    } catch {
+      /* leave the previous answer in place */
+    }
   }
 
   stop(): void {
@@ -318,7 +334,10 @@ export class SimBridge extends EventEmitter {
     this.injectBySendId.clear();
     this.airports = [];
     this.airportMap.clear();
-    if (this.contactTimer) { clearInterval(this.contactTimer); this.contactTimer = null; }
+    if (this.contactTimer) {
+      clearInterval(this.contactTimer);
+      this.contactTimer = null;
+    }
     this.patch({ connected: false, position: null, injected: [] });
   }
 
@@ -402,12 +421,7 @@ export class SimBridge extends EventEmitter {
       handle.addToDataDefinition(DEF_GPS, 'L:PMS50_GTN750_RUNNING', 'number', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_GPS, 'L:PMS50_GTN750_INSTALLED', 'number', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_GPS, 'L:GTN750_CURRENT_PAGE_1', 'number', SimConnectDataType.FLOAT64);
-      handle.requestDataOnSimObject(
-        REQ_GPS,
-        DEF_GPS,
-        SimConnectConstants.OBJECT_ID_USER,
-        SimConnectPeriod.SECOND,
-      );
+      handle.requestDataOnSimObject(REQ_GPS, DEF_GPS, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND);
     } catch {
       /* GTN750 not present */
     }
@@ -447,12 +461,7 @@ export class SimBridge extends EventEmitter {
       handle.addToDataDefinition(DEF_PERF, 'FUEL TOTAL CAPACITY', 'gallons', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_PERF, 'DESIGN SPEED VC', 'knots', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_PERF, 'NUMBER OF ENGINES', 'number', SimConnectDataType.INT32);
-      handle.requestDataOnSimObject(
-        REQ_PERF,
-        DEF_PERF,
-        SimConnectConstants.OBJECT_ID_USER,
-        SimConnectPeriod.SECOND,
-      );
+      handle.requestDataOnSimObject(REQ_PERF, DEF_PERF, SimConnectConstants.OBJECT_ID_USER, SimConnectPeriod.SECOND);
     } catch {
       /* ignore */
     }
@@ -668,7 +677,16 @@ export class SimBridge extends EventEmitter {
       clearInterval(this.contactTimer);
       this.contactTimer = null;
     }
-    this.gps = { gtnDetected: false, gtnPremium: false, currentPage: 0, lastAction: null, lastResult: null };
+    // TDS detection is a filesystem fact, not a sim one - losing the sim link
+    // must not make an installed GTNXi disappear from the console.
+    this.gps = {
+      ...this.gps,
+      gtnDetected: false,
+      gtnPremium: false,
+      currentPage: 0,
+      lastAction: null,
+      lastResult: null,
+    };
     this.patch({ connected: false, position: null, injected: [], lastError: reason });
     this.scheduleRetry();
   }
@@ -685,13 +703,10 @@ export class SimBridge extends EventEmitter {
   private rebuildAirports(): void {
     const pos = this.status.position;
     const all = [...this.airportMap.values()];
-    const scoped = pos
-      ? all.filter((ap) => roughRangeNm(pos.lat, pos.lon, ap.lat, ap.lon) <= AIRPORT_RANGE_NM)
-      : all;
+    const scoped = pos ? all.filter((ap) => roughRangeNm(pos.lat, pos.lon, ap.lat, ap.lon) <= AIRPORT_RANGE_NM) : all;
     if (pos) {
       scoped.sort(
-        (a, b) =>
-          roughRangeNm(pos.lat, pos.lon, a.lat, a.lon) - roughRangeNm(pos.lat, pos.lon, b.lat, b.lon),
+        (a, b) => roughRangeNm(pos.lat, pos.lon, a.lat, a.lon) - roughRangeNm(pos.lat, pos.lon, b.lat, b.lon),
       );
     }
     this.airports = scoped.slice(0, 600);
@@ -724,8 +739,7 @@ export class SimBridge extends EventEmitter {
     // placing pilot's inbound bearing rotated depending on who placed it and
     // which base they flew from.
     const hdg =
-      spec.headingDeg ??
-      sceneHeading(spec.headingSeed ?? spec.seed ?? `${spec.lat.toFixed(3)},${spec.lon.toFixed(3)}`);
+      spec.headingDeg ?? sceneHeading(spec.headingSeed ?? spec.seed ?? `${spec.lat.toFixed(3)},${spec.lon.toFixed(3)}`);
     const hdgRad = (hdg * Math.PI) / 180;
     const groundFt = this.groundElevationFt(spec.lat, spec.lon);
     const out: InjectedObject[] = [];
@@ -734,8 +748,7 @@ export class SimBridge extends EventEmitter {
       const north = obj.forwardM * Math.cos(hdgRad) + obj.rightM * Math.cos(hdgRad + Math.PI / 2);
       const east = obj.forwardM * Math.sin(hdgRad) + obj.rightM * Math.sin(hdgRad + Math.PI / 2);
       const lat = spec.lat + (north / EARTH_RADIUS_M) * (180 / Math.PI);
-      const lon =
-        spec.lon + (east / (EARTH_RADIUS_M * Math.cos((spec.lat * Math.PI) / 180))) * (180 / Math.PI);
+      const lon = spec.lon + (east / (EARTH_RADIUS_M * Math.cos((spec.lat * Math.PI) / 180))) * (180 / Math.PI);
       const rec = this.spawn('local', sceneObjectTitles(obj), {
         lat,
         lon,
@@ -864,7 +877,12 @@ export class SimBridge extends EventEmitter {
    * self-healing chain walks it.
    */
   private titleSpawnsAsAircraft(title: string): boolean {
-    return /\s/.test(title) || /^(30West|68ponyGT|Wrecked|Female_|Worker_|ATV1|TGV|HeliCrash|Bulldozer|Excavator|Forklift|FrontLoader|Dumptruck|TowTruck)/i.test(title);
+    return (
+      /\s/.test(title) ||
+      /^(30West|68ponyGT|Wrecked|Female_|Worker_|ATV1|TGV|HeliCrash|Bulldozer|Excavator|Forklift|FrontLoader|Dumptruck|TowTruck)/i.test(
+        title,
+      )
+    );
   }
 
   /**
@@ -1013,9 +1031,7 @@ export class SimBridge extends EventEmitter {
       // Hold near the spawn point (gentle right orbit) until the interceptor closes.
       if (rec.holding) {
         const inRange =
-          me &&
-          Math.abs(me.lat) > 0.02 &&
-          roughRangeNm(me.lat, me.lon, rec.lat, rec.lon) <= (rec.holdUntilNm ?? 80);
+          me && Math.abs(me.lat) > 0.02 && roughRangeNm(me.lat, me.lon, rec.lat, rec.lon) <= (rec.holdUntilNm ?? 80);
         if (inRange) rec.holding = false;
         else {
           rec.headingDeg = (rec.headingDeg + 3 * dt * 3) % 360; // ~9°/s orbit
@@ -1043,7 +1059,7 @@ export class SimBridge extends EventEmitter {
           const fast = (rec.speedKt ?? wp.speedKt) > 250;
           const maxTurn = (fast ? 2.5 : 6) * dt; // deg this tick
           const newHdg = turnToward(rec.headingDeg, want, maxTurn);
-          let d = ((newHdg - rec.headingDeg + 540) % 360) - 180;
+          const d = ((newHdg - rec.headingDeg + 540) % 360) - 180;
           rec.bank = Math.max(-32, Math.min(32, (d / dt) * 4));
           rec.headingDeg = newHdg;
 
@@ -1228,7 +1244,13 @@ export class SimBridge extends EventEmitter {
     const baseLeg = (name: string) =>
       spec.base
         ? baseIsIcao
-          ? { name, lat: spec.base.lat, lon: spec.base.lon, kind: 'airport' as const, ident: spec.base.name.trim().toUpperCase() }
+          ? {
+              name,
+              lat: spec.base.lat,
+              lon: spec.base.lon,
+              kind: 'airport' as const,
+              ident: spec.base.name.trim().toUpperCase(),
+            }
           : { name, lat: spec.base.lat, lon: spec.base.lon, kind: 'user' as const }
         : null;
     const legs = [
@@ -1245,7 +1267,10 @@ export class SimBridge extends EventEmitter {
     try {
       res = await writeDirectPln({ lat: pos.lat, lon: pos.lon }, legs, docName);
     } catch (err) {
-      return { ok: false, note: `Could not write the flight plan: ${err instanceof Error ? err.message : String(err)}` };
+      return {
+        ok: false,
+        note: `Could not write the flight plan: ${err instanceof Error ? err.message : String(err)}`,
+      };
     }
 
     if (this.gps.gtnDetected) this.gtnFire('GoToPage-HOME-PageFlighPlan');
@@ -1262,9 +1287,11 @@ export class SimBridge extends EventEmitter {
       /* older sim / rejected path — the file exports still work */
     }
 
+    this.gps = { ...this.gps, tdsDetected: res.tdsInstalled };
+
     const targets: string[] = [];
     if (res.pms50 > 0) targets.push(`PMS50 GTN750 x${res.pms50} (FPL ▸ Menu ▸ Import ▸ fpl)`);
-    if (res.tds > 0) targets.push('TDS GTNXi (FPL ▸ Menu ▸ Catalog ▸ Menu ▸ Import — restart the GTNXi app first)');
+    if (res.tds > 0) targets.push('TDS GTNXi (FPL ▸ Menu ▸ Catalog ▸ Import ▸ Activate)');
     if (simPlan) targets.push('sim flight plan / world map');
     targets.push(`Documents\\${docName}.pln + .gfp`);
 
@@ -1275,13 +1302,29 @@ export class SimBridge extends EventEmitter {
     };
     const where = targets.join(', ');
     this.patch({ lastError: `GPS: route exported → ${where}.` });
+
+    // The two units import differently and neither can be triggered from
+    // outside the sim, so the note has to say which one to drive and how.
+    const hints: string[] = [];
+    if (res.pms50 > 0) hints.push('GTN750: FPL ▸ Menu ▸ Import ▸ fpl.');
+    if (res.tds > 0) {
+      hints.push(
+        `GTNXi: FPL ▸ Menu ▸ Catalog ▸ Import, pick AED_${docName
+          .replace(/[^A-Za-z0-9_-]/g, '')
+          .slice(0, 24)
+          .toUpperCase()}, then Activate. If it isn't listed, restart the GTNXi app.`,
+      );
+    }
+    if (res.pms50 === 0 && !res.tdsInstalled) {
+      hints.push(
+        'No GTN750 or GTNXi found — install pms50-instrument-gtn750 in your Community folder, or TDS GTNXi. ' +
+          'The .pln and .gfp saved in Documents work with either, once one is installed.',
+      );
+    }
+
     return {
       ok: true,
-      note:
-        `Full route (${legs.map((l) => l.name).join(' → ')}) exported → ${where}.` +
-        (res.pms50 === 0 && res.tds === 0
-          ? ' No GTN750/GTNXi detected — install pms50-instrument-gtn750 or TDS GTNXi to load it on the unit.'
-          : ''),
+      note: `Full route (${legs.map((l) => l.name).join(' → ')}) exported → ${where}. ${hints.join(' ')}`.trim(),
     };
   }
 
@@ -1354,23 +1397,6 @@ function rampTo(cur: number, target: number, maxStep: number): number {
   const d = target - cur;
   if (Math.abs(d) <= maxStep) return target;
   return cur + Math.sign(d) * maxStep;
-}
-
-/**
- * Digits for the GTN Coordinates keyboard in degrees + decimal-minutes:
- * `degPad` degrees (2 for latitude, 3 for longitude), 2-digit minutes, 3-digit
- * minute fraction. e.g. 37.8467 -> "37" "50" "802" -> "3750802".
- */
-function fmtCoordDigits(absDeg: number, degPad: number): string {
-  const deg = Math.floor(absDeg);
-  const minutes = (absDeg - deg) * 60;
-  const minInt = Math.floor(minutes);
-  const minFrac = Math.round((minutes - minInt) * 1000);
-  return (
-    String(deg).padStart(degPad, '0') +
-    String(minInt).padStart(2, '0') +
-    String(minFrac).padStart(3, '0')
-  );
 }
 
 export const simBridge = new SimBridge();

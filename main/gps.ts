@@ -141,10 +141,59 @@ export function buildGfp(legs: Leg[]): string {
   return `FPN/RI:F:${out.join(':F:')}`;
 }
 
-/** TDS GTNXi reads .gfp plans from here (created on its first run). */
+export type TdsInfo = {
+  installed: boolean;
+  /** where .gfp plans belong, whether or not it exists yet */
+  fplDir: string;
+  /** what proved the install, for the UI and support */
+  evidence: string | null;
+};
+
+/**
+ * Find a TDS GTNXi install and the folder its FPL catalog imports from
+ * (`ProgramData\TDS\GTNXi\FPL`, per the TDS manual).
+ *
+ * The catch: that folder only appears once the catalog has been used, so keying
+ * detection off it misses everyone who has GTNXi installed but has never
+ * imported a plan — they'd silently get no .gfp at all. The licence files GTNXi
+ * drops in `TDS\Common` exist from install time, so they are the dependable
+ * signal; we create the FPL folder ourselves when writing.
+ */
+export async function tdsGtnxi(): Promise<TdsInfo> {
+  const root = path.join(process.env.ProgramData || 'C:\\ProgramData', 'TDS');
+  const fplDir = path.join(root, 'GTNXi', 'FPL');
+
+  if (await exists(fplDir)) return { installed: true, fplDir, evidence: 'FPL catalog folder' };
+  if (await exists(path.dirname(fplDir))) return { installed: true, fplDir, evidence: 'GTNXi data folder' };
+  for (const dat of ['TDSGTNXiFlightSim.dat', 'TDSGTNXiFlightSimProUpgrade.dat']) {
+    if (await exists(path.join(root, 'Common', dat))) return { installed: true, fplDir, evidence: dat };
+  }
+  return { installed: false, fplDir, evidence: null };
+}
+
+/** The GTNXi FPL folder as a list — empty when GTNXi isn't installed. */
 export async function tdsFplDirs(): Promise<string[]> {
-  const dir = path.join(process.env.ProgramData || 'C:\\ProgramData', 'TDS', 'GTNXi', 'FPL');
-  return (await exists(path.dirname(dir))) ? [dir] : [];
+  const tds = await tdsGtnxi();
+  return tds.installed ? [tds.fplDir] : [];
+}
+
+/**
+ * The GTNXi loads at most 50 .gfp files from the FPL folder, so one plan per job
+ * would eventually crowd the user's own plans out of the Import list. Keep only
+ * the newest few of ours, and never touch a file we didn't write.
+ */
+const GFP_KEEP = 8;
+
+async function pruneOurGfp(dir: string): Promise<void> {
+  try {
+    const mine = (await fs.readdir(dir)).filter((f) => /^AED_.*\.gfp$/i.test(f));
+    if (mine.length <= GFP_KEEP) return;
+    const stamped = await Promise.all(mine.map(async (f) => ({ f, t: (await fs.stat(path.join(dir, f))).mtimeMs })));
+    stamped.sort((a, b) => b.t - a.t);
+    for (const { f } of stamped.slice(GFP_KEEP)) await fs.rm(path.join(dir, f), { force: true });
+  } catch {
+    /* best effort — a crowded folder beats a failed export */
+  }
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -174,6 +223,8 @@ export type PlnResult = {
   pms50: number;
   /** how many TDS GTNXi FPL folders got the .gfp */
   tds: number;
+  /** GTNXi is installed (even if the write failed, e.g. permissions) */
+  tdsInstalled: boolean;
   /** absolute path of the .pln, for SimConnect flightPlanLoad */
   plnPath: string;
 };
@@ -207,22 +258,25 @@ export async function writeDirectPln(from: Pt, legs: Leg[], docName = 'route'): 
     }
   }
 
-  // TDS GTNXi wants a Garmin .gfp in its own catalog folder.
+  // TDS GTNXi wants a Garmin .gfp in its own catalog folder. Create it if this
+  // is the user's first import — GTNXi only makes it once the catalog is used,
+  // and it reads whatever is there regardless of who created it.
   const gfp = buildGfp(legs);
-  const tdsDirs = await tdsFplDirs();
+  const tdsInfo = await tdsGtnxi();
   let tds = 0;
-  for (const dir of tdsDirs) {
+  if (tdsInfo.installed) {
     try {
-      await fs.mkdir(dir, { recursive: true });
-      const f = path.join(dir, `AED_${safe.toUpperCase()}.gfp`);
+      await fs.mkdir(tdsInfo.fplDir, { recursive: true });
+      const f = path.join(tdsInfo.fplDir, `AED_${safe.toUpperCase()}.gfp`);
       await fs.writeFile(f, gfp, 'utf8');
       files.push(f);
       tds++;
+      await pruneOurGfp(tdsInfo.fplDir);
     } catch {
-      /* not installed / read-only */
+      /* read-only / permissions — the Documents copy still works */
     }
   }
   await fs.writeFile(path.join(docs, `${safe}.gfp`), gfp, 'utf8').catch(() => undefined);
 
-  return { files, pms50: fplDirs.length, tds, plnPath: docFile };
+  return { files, pms50: fplDirs.length, tds, tdsInstalled: tdsInfo.installed, plnPath: docFile };
 }

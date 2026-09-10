@@ -8,9 +8,9 @@ import {
   sim,
   useSimStatus,
   useSyncPeers,
-  useSyncStatus,
   type GpsStatus,
   type PeerPresence,
+  type SimPosition,
   type SimStatus,
 } from '../lib/sim';
 import { classifyAircraft, type Airport, type Call, type Hospital, type Priority } from '../lib/jobgen';
@@ -21,6 +21,7 @@ import { MenuBar } from './MenuBar';
 import { AccountBadge } from './AccountBadge';
 import { ScenePacksDialog } from './ScenePacksDialog';
 import { UpdateBanner, UpdateDialog } from './UpdateDialog';
+import { OptionsDialog } from './OptionsDialog';
 const MapView = dynamic(() => import('./MapView'), {
   ssr: false,
   loading: () => <div className="flex h-full items-center justify-center text-[#404040]">Loading map…</div>,
@@ -198,7 +199,6 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const [log, setLog] = useState<ShiftLog>(SHIFT_EMPTY);
   const [note, setNote] = useState<string | null>(null);
   const [, setTick] = useState(0);
-  const bootRef = useRef(Date.now());
   const claimIdsRef = useRef<Set<string>>(new Set());
 
   const account = useAccount();
@@ -212,16 +212,15 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
     primeAudio();
   }, []);
 
-  const secondsSinceBoot = Math.floor((Date.now() - bootRef.current) / 1000);
   const elapsed = active ? Math.floor((Date.now() - active.acceptedAt) / 1000) : 0;
 
   const simStatus = useSimStatus();
-  const syncStatus = useSyncStatus();
   const peers = useSyncPeers();
   const [simBusy, setSimBusy] = useState(false);
   const [simNote, setSimNote] = useState<string | null>(null);
   const [scenePacksOpen, setScenePacksOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [objPreset, setObjPreset] = useState('windsock');
   const [presets, setPresets] = useState<{ id: string; label: string }[]>([]);
   const [sceneCatalog, setSceneCatalog] = useState<{ id: string; label: string }[]>([]);
@@ -244,8 +243,12 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const onDuty = simStatus.connected && hasFix;
 
   // --- shared job pool -------------------------------------------------
+  // The board is readable off duty, but the alert tone is not: chirping about
+  // tasking nobody can accept yet is just noise while you're still loading in.
+  const canActRef = useRef(false);
   const pool = useJobs((j) => {
     if (active) return; // on a job — don't chirp about new tasking
+    if (!canActRef.current) return; // off duty — board only, no alerts
     if (j.priority === 'P1') playPriorityCall();
     else playNewCall();
   }, channel);
@@ -344,6 +347,22 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   );
 
   const boardReady = hasFix && Boolean(base);
+  // The board is always readable. Acting on a job is what needs the sim: you
+  // cannot fly to a call you aren't loaded for, and claiming one you can't run
+  // holds it away from crews who can.
+  const canAct = onDuty && Boolean(base);
+  // Written from an effect rather than during render: the audio gate only needs
+  // to be right by the next job that arrives, never mid-render.
+  useEffect(() => {
+    canActRef.current = canAct;
+  }, [canAct]);
+  const gateReason = !simStatus.connected
+    ? 'Load into Microsoft Flight Simulator to claim jobs'
+    : !hasFix
+      ? 'Waiting for a position fix from the sim'
+      : !base
+        ? 'Set your operating base to claim jobs'
+        : null;
 
   const startJob = useCallback(
     (j: ServerJob) => {
@@ -685,9 +704,47 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
     setSimNote(res ? `Removed ${res.removed ?? 0} injected object(s).` : 'SimConnect bridge unavailable.');
   }, []);
 
+  // Keyboard on the board: this is a console people drive one-handed while
+  // flying, so the common moves shouldn't need the mouse. Never swallow keys
+  // while the user is typing in a field or a dialog is up.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      const typing =
+        el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+      if (typing || e.ctrlKey || e.altKey || e.metaKey) return;
+      if (scenePacksOpen || updateOpen || optionsOpen) return;
+
+      if (e.key === 'Escape') {
+        if (detailJobId) {
+          e.preventDefault();
+          setDetailJobId(null);
+        }
+        return;
+      }
+      if (active) return; // on a job — the board isn't driving any more
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (available.length === 0) return;
+        e.preventDefault();
+        const i = available.findIndex((j) => j.id === selectedJobId);
+        const next = e.key === 'ArrowDown' ? Math.min(available.length - 1, i + 1) : Math.max(0, i - 1);
+        setSelectedJobId(available[i < 0 ? 0 : next]!.id);
+        return;
+      }
+      if (e.key === 'Enter' && selectedJobId) {
+        e.preventDefault();
+        // Enter opens the brief; Enter again (from the brief) is the claim.
+        if (!detailJobId) setDetailJobId(selectedJobId);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [available, selectedJobId, detailJobId, active, scenePacksOpen, updateOpen, optionsOpen]);
+
   const detailJob = pool.find((j) => j.id === detailJobId) ?? null;
   const detailCall = detailJob ? jobToCall(detailJob) : null;
-  const canClaimDetail = detailJob?.status === 'available';
+  const canClaimDetail = detailJob?.status === 'available' && canAct;
   const statusText = active
     ? `On task — ${active.call.kind} · ${PHASE_LABEL[active.phase]}`
     : myJob
@@ -695,7 +752,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
       : boardReady
         ? `${base?.name} — ${available.length} job(s) available`
         : hasFix
-          ? 'Select an operating base to see the job board'
+          ? `Viewing ${available.length} job(s) — set an operating base to claim`
           : simStatus.connected
             ? 'Simulator connected — waiting for a position fix'
             : 'Waiting for a simulator connection';
@@ -711,6 +768,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
                 ? { label: `Sign out (${account.current.name})`, onClick: () => void account.signOut() }
                 : { label: 'Sign in…', disabled: true },
               { label: 'Open data folder', onClick: () => void window.ipc?.invoke?.('app:openDataFolder') },
+              { label: 'Options…', onClick: () => setOptionsOpen(true) },
               'separator',
               { label: 'Exit', onClick: () => window.ipc?.send?.('windowControl', 'close') },
             ],
@@ -719,6 +777,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
             label: 'View',
             items: [
               { label: 'Mute alert sounds', checked: muted, onClick: toggleMute },
+              { label: 'Options…', onClick: () => setOptionsOpen(true) },
               { label: 'Reload console', onClick: () => void window.ipc?.invoke?.('window:reload') },
             ],
           },
@@ -762,7 +821,13 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
               'separator',
               { label: 'Check for updates…', onClick: () => setUpdateOpen(true) },
               'separator',
-              { label: 'GPS control needs the PMS50 GTN750 Premium', disabled: true },
+              {
+                label: `Route export: PMS50 GTN750${gpsStatus?.gtnDetected ? ' ✓' : ''} · TDS GTNXi${
+                  gpsStatus?.tdsDetected ? ' ✓' : ''
+                }`,
+                disabled: true,
+              },
+              { label: 'Direct-to automation needs the PMS50 GTN750 Premium', disabled: true },
               { label: version ? `Aus Emergency Dispatcher ${version}` : 'Aus Emergency Dispatcher', disabled: true },
             ],
           },
@@ -886,9 +951,12 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
           <CallDetail
             call={detailCall}
             canAccept={canClaimDetail}
+            blockedReason={gateReason ?? (detailJob.status !== 'available' ? 'This job is already taken.' : null)}
             acceptLabel="Claim Job"
             onAccept={() => claim(detailJob)}
             onBack={() => setDetailJobId(null)}
+            aircraft={hasFix ? simStatus.position : null}
+            base={base}
           />
         ) : active ? (
           <ActiveJob
@@ -905,26 +973,11 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
         ) : (
           <>
             <OnWatch log={log} simStatus={simStatus} hasFix={hasFix} base={base} myJob={myJob} />
-            {boardReady ? (
-              <JobBoard
-                available={available}
-                myJob={myJob}
-                othersActive={othersActive}
-                aircraftClass={hasFix ? aircraftClass : null}
-                estRangeNm={fix?.estRangeNm ?? 0}
-                base={base!}
-                boardTitle={isRaafv ? 'RAAFv Tasking' : 'Job Board'}
-                selectedId={selectedJobId}
-                onSelect={setSelectedJobId}
-                onOpen={setDetailJobId}
-                onClaim={claim}
-                onJoin={joinJob}
-                onRelease={releaseJob}
-                onStart={startJob}
-                canStart={boardReady}
-              />
-            ) : (
-              <BasePicker
+            {/* The board stays readable no matter what the sim is doing; the
+                gate above it explains what is still needed to act on a job. */}
+            {!canAct && (
+              <DutyGate
+                reason={gateReason}
                 hasFix={hasFix}
                 connected={simStatus.connected}
                 options={baseOptions}
@@ -934,6 +987,25 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
                 fix={fix}
               />
             )}
+            <JobBoard
+              available={available}
+              myJob={myJob}
+              othersActive={othersActive}
+              aircraftClass={hasFix ? aircraftClass : null}
+              estRangeNm={fix?.estRangeNm ?? 0}
+              base={base}
+              boardTitle={isRaafv ? 'RAAFv Tasking' : 'Job Board'}
+              selectedId={selectedJobId}
+              onSelect={setSelectedJobId}
+              onOpen={setDetailJobId}
+              onClaim={claim}
+              onJoin={joinJob}
+              onRelease={releaseJob}
+              onStart={startJob}
+              canStart={canAct}
+              canAct={canAct}
+              gateReason={gateReason}
+            />
           </>
         )}
       </div>
@@ -945,11 +1017,14 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
         <span className="flex w-[150px] items-center justify-center">
           <AccountBadge account={account} />
         </span>
-        <span className="w-[84px] text-center">{new Date().toLocaleTimeString([], { hour12: false })}</span>
+        <span className="w-[84px] text-center">
+          <StatusClock />
+        </span>
       </div>
 
       {scenePacksOpen && <ScenePacksDialog onClose={() => setScenePacksOpen(false)} />}
       {updateOpen && <UpdateDialog onClose={() => setUpdateOpen(false)} />}
+      {optionsOpen && <OptionsDialog onClose={() => setOptionsOpen(false)} />}
     </div>
   );
 }
@@ -1051,8 +1126,13 @@ function Th({ children, className = '' }: { children: ReactNode; className?: str
   );
 }
 
-/** Pick where the unit operates from before the job board goes live. */
-function BasePicker({
+/**
+ * The strip above the board when the operator can look but not touch. It carries
+ * the reason and, once the sim gives us a position, the base picker itself — so
+ * the last step to going operational is right where the block is explained.
+ */
+function DutyGate({
+  reason,
   hasFix,
   connected,
   options,
@@ -1061,6 +1141,7 @@ function BasePicker({
   onConfirm,
   fix,
 }: {
+  reason: string | null;
   hasFix: boolean;
   connected: boolean;
   options: Airport[];
@@ -1071,66 +1152,73 @@ function BasePicker({
 }) {
   const [manual, setManual] = useState('');
   return (
-    <fieldset className="win-group flex min-w-0 flex-1 flex-col">
-      <div className="legend font-bold">Operating Base</div>
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-        {!connected ? (
-          <p className="max-w-[440px] text-[#404040]">
-            Start Microsoft Flight Simulator and load onto a ramp. Once the aircraft reports a position you choose the
-            airfield you&apos;re operating from — the job board opens after that.
-          </p>
-        ) : !hasFix ? (
-          <p className="text-[#404040]">Simulator connected — waiting for a position fix…</p>
-        ) : (
-          <>
-            <p className="max-w-[440px] text-[#404040]">
-              Choose the airfield you&apos;re operating from. Jobs are dispatched from here and every task ends back at
-              this base. {options.length} airfield(s) in range.
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <select
-                className="win-sunken min-w-[240px] px-2 py-[3px] font-mono text-[12px]"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-              >
-                {options.map((a) => (
-                  <option key={a.ident} value={a.ident}>
-                    {a.ident}
-                    {fix
-                      ? ` — ${rangeBearing({ lat: fix.lat, lon: fix.lon }, { lat: a.lat, lon: a.lon }).rangeNm.toFixed(0)} NM`
-                      : ''}
-                  </option>
-                ))}
-                <option value="__pos__">Present position</option>
-              </select>
-              <button type="button" className="win-btn is-default" onClick={() => onConfirm()}>
-                Set Base
-              </button>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] text-[#404040]">
-              <span>Not listed? Type an ICAO</span>
-              <input
-                className="win-sunken w-[92px] px-2 py-[3px] font-mono text-[12px] uppercase"
-                value={manual}
-                maxLength={5}
-                placeholder="YMEN"
-                onChange={(e) => setManual(e.target.value.toUpperCase())}
-                onKeyDown={(e) => e.key === 'Enter' && manual.trim() && onConfirm(manual.trim())}
-              />
-              <button
-                type="button"
-                className="win-btn"
-                disabled={!manual.trim()}
-                onClick={() => onConfirm(manual.trim())}
-              >
-                Use
-              </button>
-            </div>
-          </>
-        )}
+    <div className="win-sunken mb-2 border-l-4 border-[#a05000] px-2 py-[6px]">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <b>{reason ?? 'Not on duty'}</b>
+        <span className="text-[11px] text-[#404040]">
+          {!connected
+            ? 'The board below is live — browse tasking and open any brief while you load in.'
+            : !hasFix
+              ? 'Simulator connected — waiting for the aircraft to report a position.'
+              : 'Jobs are dispatched from your base and every task ends back there.'}
+        </span>
       </div>
-    </fieldset>
+
+      {hasFix && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-[#404040]">Operating base</span>
+          <select
+            className="win-sunken min-w-[210px] px-2 py-[2px] font-mono text-[12px]"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          >
+            {options.map((a) => (
+              <option key={a.ident} value={a.ident}>
+                {a.ident}
+                {fix
+                  ? ` — ${rangeBearing({ lat: fix.lat, lon: fix.lon }, { lat: a.lat, lon: a.lon }).rangeNm.toFixed(0)} NM`
+                  : ''}
+              </option>
+            ))}
+            <option value="__pos__">Present position</option>
+          </select>
+          <button type="button" className="win-btn is-default px-3" onClick={() => onConfirm()}>
+            Set Base
+          </button>
+          <span className="text-[#606060]">or type an ICAO</span>
+          <input
+            className="win-sunken w-[86px] px-2 py-[2px] font-mono text-[12px] uppercase"
+            value={manual}
+            maxLength={5}
+            placeholder="YMEN"
+            onChange={(e) => setManual(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === 'Enter' && manual.trim() && onConfirm(manual.trim())}
+          />
+          <button type="button" className="win-btn" disabled={!manual.trim()} onClick={() => onConfirm(manual.trim())}>
+            Use
+          </button>
+        </div>
+      )}
+    </div>
   );
+}
+
+/**
+ * Status-bar clock. Rendered from state rather than inline `new Date()`, for two
+ * reasons: Next static-exports this page, so an inline time is frozen at BUILD
+ * time and never ticks, and it differs from what the client renders — which is
+ * what threw "Minified React error #418/#425" (hydration mismatch) on every
+ * launch. Empty on the first paint so server and client agree.
+ */
+function StatusClock() {
+  const [now, setNow] = useState('');
+  useEffect(() => {
+    const tick = () => setNow(new Date().toLocaleTimeString([], { hour12: false }));
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  return <>{now}</>;
 }
 
 /** The shared job board — available jobs plus what other units are on. */
@@ -1150,13 +1238,15 @@ function JobBoard({
   onRelease,
   onStart,
   canStart,
+  canAct,
+  gateReason,
 }: {
   available: ServerJob[];
   myJob: ServerJob | null;
   othersActive: ServerJob[];
   aircraftClass: 'rotary' | 'fixed' | null;
   estRangeNm: number;
-  base: Base;
+  base: Base | null;
   boardTitle: string;
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -1166,12 +1256,19 @@ function JobBoard({
   onRelease: (j: ServerJob) => void;
   onStart: (j: ServerJob) => void;
   canStart: boolean;
+  /** false until the operator is loaded in the sim with a base set */
+  canAct: boolean;
+  gateReason: string | null;
 }) {
+  // With no base (sim not loaded) there is nothing to measure range from, so the
+  // board falls back to showing everything, newest first.
   const [showAll, setShowAll] = useState(false);
   const d = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) => rangeBearing(a, b).rangeNm;
-  const rangeTo = (j: ServerJob) => rangeBearing({ lat: base.lat, lon: base.lon }, { lat: j.lat, lon: j.lon });
-  /** Full sortie: base → job → (hospital) → base. */
+  const rangeTo = (j: ServerJob) =>
+    base ? rangeBearing({ lat: base.lat, lon: base.lon }, { lat: j.lat, lon: j.lon }) : null;
+  /** Full sortie: base → job → (hospital) → base. 0 when there's no base yet. */
   const routeNm = (j: ServerJob) => {
+    if (!base) return 0;
     const toJob = d(base, j);
     if (j.transportTo) return toJob + d(j, j.transportTo) + d(j.transportTo, base);
     return toJob + d(j, base);
@@ -1179,33 +1276,43 @@ function JobBoard({
   // Use the aircraft's fuel-based range when we have it, else a class default.
   const reach = estRangeNm > 40 ? estRangeNm : aircraftClass === 'fixed' ? 900 : 300;
   // Default view is jobs CLOSE to base (leg distance), not everything the tanks
-  // could round-trip — "Show all in range" opens it up to the full fuel reach.
+  // could round-trip — "Show all Australia" drops the filter entirely.
   const localCap = Math.min(reach * 0.98, aircraftClass === 'fixed' ? 320 : 130);
   const sorted = useMemo(() => {
+    if (!base) return [...available].sort((a, b) => b.createdAt - a.createdAt);
     const byRange = [...available].sort((a, b) => routeNm(a) - routeNm(b));
-    if (showAll) return byRange.filter((j) => routeNm(j) <= reach * 0.98);
+    // "Show all Australia" means all of it — out-of-reach jobs stay listed and
+    // are flagged in the range column rather than hidden.
+    if (showAll) return byRange;
     return byRange.filter((j) => d(base, j) <= localCap && routeNm(j) <= reach * 0.98);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [available, base.lat, base.lon, showAll, reach, localCap]);
+  }, [available, base?.lat, base?.lon, showAll, reach, localCap]);
   const hiddenCount = available.length - sorted.length;
   const selected = sorted.find((j) => j.id === selectedId) ?? null;
 
   return (
     <fieldset className="win-group flex min-w-0 flex-1 flex-col">
       <div className="legend flex items-center gap-2 font-bold">
-        {boardTitle} — {base.name} ·{' '}
-        {showAll
-          ? `reach ${Math.round(reach)} NM${estRangeNm > 40 ? ' (fuel)' : ''}`
-          : `within ${Math.round(localCap)} NM`}
-        <label className="ml-2 flex items-center gap-1 font-normal text-[11px] text-[#404040]">
-          <input
-            type="checkbox"
-            className="win-checkbox"
-            checked={showAll}
-            onChange={(e) => setShowAll(e.target.checked)}
-          />
-          Show all in range{hiddenCount > 0 ? ` (+${hiddenCount})` : ''}
-        </label>
+        {boardTitle}
+        {base ? (
+          <>
+            {' '}
+            — {base.name} · {showAll ? 'all Australia' : `within ${Math.round(localCap)} NM`}
+          </>
+        ) : (
+          <> — all Australia · {available.length} job(s)</>
+        )}
+        {base && (
+          <label className="ml-2 flex items-center gap-1 text-[11px] font-normal text-[#404040]">
+            <input
+              type="checkbox"
+              className="win-checkbox"
+              checked={showAll}
+              onChange={(e) => setShowAll(e.target.checked)}
+            />
+            Show all Australia{hiddenCount > 0 ? ` (+${hiddenCount})` : ''}
+          </label>
+        )}
       </div>
 
       {myJob && (
@@ -1237,7 +1344,7 @@ function JobBoard({
                 type="button"
                 className="win-btn is-default"
                 disabled={!canStart}
-                title={canStart ? 'Launch from base' : 'Set an operating base first'}
+                title={canStart ? 'Launch from base' : (gateReason ?? 'Set an operating base first')}
                 onClick={() => onStart(myJob)}
               >
                 Start Job
@@ -1267,8 +1374,8 @@ function JobBoard({
             {sorted.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-2 py-6 text-center text-[#404040]">
-                  {hiddenCount > 0
-                    ? `No tasking within ${Math.round(localCap)} NM of ${base.name}. ${hiddenCount} further out — tick "Show all in range".`
+                  {hiddenCount > 0 && base
+                    ? `No tasking within ${Math.round(localCap)} NM of ${base.name}. ${hiddenCount} further out — tick "Show all Australia".`
                     : 'No tasking right now — the pool tops up automatically.'}
                 </td>
               </tr>
@@ -1297,13 +1404,25 @@ function JobBoard({
                       {mismatch ? ' ⚠' : ''}
                     </td>
                     <td className="px-2 py-[5px] text-right align-top font-mono">
-                      {heading(rb.bearingDeg)} / {rb.rangeNm.toFixed(0)}
-                      <span
-                        className={`ml-1 text-[10px] ${routeNm(j) > reach ? 'text-[#a00000]' : 'text-[#606060]'}`}
-                        title="round trip base → job → hospital → base"
-                      >
-                        (rt {routeNm(j).toFixed(0)})
-                      </span>
+                      {rb ? (
+                        <>
+                          {heading(rb.bearingDeg)} / {rb.rangeNm.toFixed(0)}
+                          <span
+                            className={`ml-1 text-[10px] ${routeNm(j) > reach ? 'text-[#a00000]' : 'text-[#606060]'}`}
+                            title={
+                              routeNm(j) > reach
+                                ? 'Round trip exceeds your estimated range — refuel or reposition'
+                                : 'round trip base → job → hospital → base'
+                            }
+                          >
+                            (rt {routeNm(j).toFixed(0)})
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-[#808080]" title="Set an operating base to see range">
+                          —
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1317,9 +1436,9 @@ function JobBoard({
         <button
           type="button"
           className="win-btn is-default"
-          disabled={!selected || Boolean(myJob)}
+          disabled={!selected || Boolean(myJob) || !canAct}
           onClick={() => selected && onClaim(selected)}
-          title={myJob ? 'Leave your current call first' : 'Claim this job'}
+          title={!canAct ? (gateReason ?? 'Not on duty') : myJob ? 'Leave your current call first' : 'Claim this job'}
         >
           Claim Job
         </button>
@@ -1327,7 +1446,11 @@ function JobBoard({
           Details
         </button>
         <span className="ml-1 truncate text-[#404040]">
-          {selected ? `Selected: ${selected.kind}` : 'Select a job. Double-click for the full brief.'}
+          {!canAct
+            ? `Viewing only — ${(gateReason ?? 'not on duty').toLowerCase()}. Double-click any job for the full brief.`
+            : selected
+              ? `Selected: ${selected.kind}`
+              : 'Select a job. Double-click for the full brief.'}
         </span>
       </div>
 
@@ -1346,7 +1469,13 @@ function JobBoard({
                   {(j.party?.length ?? 0) > 1 ? ` +${j.party!.length - 1}` : ''} · {j.phase ?? j.status}
                 </span>
               </button>
-              <button type="button" className="win-btn" onClick={() => onJoin(j)}>
+              <button
+                type="button"
+                className="win-btn"
+                disabled={!canAct}
+                title={canAct ? 'Join this call' : (gateReason ?? 'Not on duty')}
+                onClick={() => onJoin(j)}
+              >
                 Join
               </button>
             </div>
@@ -1360,13 +1489,21 @@ function JobBoard({
 function CallDetail({
   call,
   canAccept,
+  blockedReason,
   acceptLabel = 'Accept Call',
   onAccept,
   onBack,
+  aircraft = null,
+  base = null,
 }: {
   call: Call;
   canAccept: boolean;
+  /** why the accept button is disabled, shown next to it */
+  blockedReason?: string | null;
   acceptLabel?: string;
+  /** live aircraft position, when the sim is loaded */
+  aircraft?: SimPosition | null;
+  base?: Base | null;
   onAccept: () => void;
   onBack: () => void;
 }) {
@@ -1409,6 +1546,20 @@ function CallDetail({
               <KeyRow label="Sector" value={call.sector} wide={104} />
               <KeyRow label="Access" value={call.access} wide={104} />
               <KeyRow label="Landing" value={call.lz} wide={104} />
+              {/* Where the job actually is. The brief used to be text-only, which
+                  is fine when you have already launched but not when you are
+                  choosing between jobs across the country. */}
+              <div className="win-sunken mt-1.5 h-[200px] overflow-hidden">
+                <MapView
+                  aircraft={aircraft}
+                  trail={[]}
+                  job={{ lat: call.lat, lon: call.lon, name: call.kind }}
+                  scene={call.transportTo ? { ...call.transportTo } : null}
+                  base={base ? { lat: base.lat, lon: base.lon, name: base.name } : null}
+                  peers={[]}
+                  objects={[]}
+                />
+              </div>
             </GroupBox>
           </div>
 
@@ -1434,7 +1585,8 @@ function CallDetail({
             <GroupBox title="Weather">
               <div className="win-sunken px-2 py-1.5 font-mono">{call.weather}</div>
               <p className="mt-2 text-[11px] text-[#404040]">
-                Live map, tracking and unit positions open on the job console once the call is accepted.
+                Live tracking, crew positions and injected scene objects open on the job console once the call is
+                accepted.
               </p>
             </GroupBox>
           </div>
@@ -1444,13 +1596,23 @@ function CallDetail({
           className="flex items-center gap-2 border-t-2 border-[#808080] p-2"
           style={{ boxShadow: '0 1px 0 #fff inset' }}
         >
-          <button type="button" className="win-btn is-default" disabled={!canAccept} onClick={onAccept}>
-            Accept Call
+          <button
+            type="button"
+            className="win-btn is-default"
+            disabled={!canAccept}
+            title={canAccept ? undefined : (blockedReason ?? 'Not available')}
+            onClick={onAccept}
+          >
+            {acceptLabel}
           </button>
           <button type="button" className="win-btn" onClick={onBack}>
             Back to List
           </button>
-          {!canAccept && <span className="ml-1 text-[#404040]">Go on duty (and clear the current job) to accept.</span>}
+          {!canAccept && (
+            <span className="ml-1 text-[#404040]">
+              {blockedReason ?? 'Go on duty (and clear the current job) to accept.'}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -1891,15 +2053,33 @@ function ActiveJob({
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-center gap-2 border-b border-[#808080] px-2 py-1">
                     <button type="button" className="win-btn" onClick={sendToGps} disabled={gpsBusy}>
-                      Export route to GTN750
+                      Export route to GPS
                     </button>
-                    <span className="ml-auto font-mono text-[11px] text-[#404040]">
-                      GTN750{' '}
-                      {gpsStatus?.gtnDetected
-                        ? `${gpsStatus.gtnPremium ? 'Premium' : 'Lite'} · pg ${gpsStatus.currentPage}${
-                            gpsStatus.lastAction ? ` · ${gpsStatus.lastAction}` : ''
-                          }`
-                        : 'not detected'}
+                    {/* Both supported units, each with its own detection: the PMS50
+                        gauge reports through sim L: vars, GTNXi is found on disk. */}
+                    <span className="ml-auto flex items-center gap-2 font-mono text-[11px] text-[#404040]">
+                      <span title="PMS50 GTN750 — detected from the sim's L: vars, so it only shows with the sim running">
+                        GTN750{' '}
+                        <b className={gpsStatus?.gtnDetected ? 'text-[#006000]' : 'text-[#808080]'}>
+                          {gpsStatus?.gtnDetected
+                            ? `${gpsStatus.gtnPremium ? 'Premium' : 'Lite'} · pg ${gpsStatus.currentPage}`
+                            : 'not detected'}
+                        </b>
+                      </span>
+                      <span className="text-[#a0a0a0]">|</span>
+                      <span
+                        title={
+                          gpsStatus?.tdsDetected
+                            ? `TDS GTNXi installed (found via ${gpsStatus.tdsEvidence ?? 'its data folder'}). Routes are written to its FPL catalog.`
+                            : 'TDS GTNXi not installed on this PC'
+                        }
+                      >
+                        GTNXi{' '}
+                        <b className={gpsStatus?.tdsDetected ? 'text-[#006000]' : 'text-[#808080]'}>
+                          {gpsStatus?.tdsDetected ? 'installed' : 'not detected'}
+                        </b>
+                      </span>
+                      {gpsStatus?.lastAction && <span className="text-[#606060]">· {gpsStatus.lastAction}</span>}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 border-b border-[#808080] px-2 py-1">

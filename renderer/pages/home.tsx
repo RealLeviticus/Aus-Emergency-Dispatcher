@@ -177,11 +177,10 @@ export default function Home() {
 
   const openApps = useMemo(() => APPS.filter((a) => entitlements[a.entitlement] !== false), [entitlements]);
 
-  useEffect(() => {
-    if (!openApps.some((a) => a.id === activeId) && openApps.length) setActiveId(openApps[0].id);
-  }, [openApps, activeId]);
-
-  const activeApp = openApps.find((a) => a.id === activeId) ?? APPS[0];
+  // Derived, not corrected in an effect: if the selected app is revoked (RAAFv
+  // entitlement lost) we simply fall back while rendering, instead of setting
+  // state from an effect and forcing a second render pass.
+  const activeApp = openApps.find((a) => a.id === activeId) ?? openApps[0] ?? APPS[0];
 
   return (
     <>

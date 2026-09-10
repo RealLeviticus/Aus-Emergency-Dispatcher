@@ -49,6 +49,12 @@ export default function ServiceIndex() {
     return () => window.clearTimeout(id);
   }, [busy]);
 
+  // Clicking the splash drops the remaining branding wait. It never skips an
+  // update that is mid-download — that has its own explicit "Skip" control.
+  const skipWait = () => {
+    if (!busy && update.phase !== 'installing') window.ipc?.send?.('splash:skip', null);
+  };
+
   const status =
     update.phase === 'checking'
       ? 'Checking for updates'
@@ -62,7 +68,9 @@ export default function ServiceIndex() {
 
   return (
     <div
-      className={`splash-stage splash-stage-${profile.lightPattern} relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden text-white`}
+      onClick={skipWait}
+      title="Click to skip"
+      className={`splash-stage splash-stage-${profile.lightPattern} relative flex h-screen w-screen cursor-pointer flex-col items-center justify-center overflow-hidden text-white`}
       style={
         {
           '--splash-accent': profile.accent,

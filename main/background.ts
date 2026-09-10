@@ -31,7 +31,10 @@ let mainWindow: BrowserWindow | null = null;
 let splashStartTime = 0;
 
 const isProd = process.env.NODE_ENV === 'production';
-const splashMinDuration = 5000;
+// Long enough for the branding to register, short enough not to be a toll on
+// every launch. The update check runs concurrently and has its own cap, and the
+// splash can be clicked to skip the remainder.
+const splashMinDuration = 1800;
 /** Give the launch update check (10 s cap) room before the backstop fires. */
 const SPLASH_BACKSTOP_MS = 60_000;
 const preferences = new Store<{
@@ -381,6 +384,11 @@ app.on('activate', () => {
   }
 });
 
+let skipSplashWait = false;
+ipcMain.on('splash:skip', () => {
+  skipSplashWait = true;
+});
+
 ipcMain.on('openApp', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
@@ -388,7 +396,7 @@ ipcMain.on('openApp', async () => {
   }
 
   const elapsed = Date.now() - splashStartTime;
-  const waitTime = Math.max(0, splashMinDuration - elapsed);
+  const waitTime = skipSplashWait ? 0 : Math.max(0, splashMinDuration - elapsed);
 
   setTimeout(async () => {
     if (splashWindow && !splashWindow.isDestroyed()) {

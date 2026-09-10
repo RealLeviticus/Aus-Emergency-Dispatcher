@@ -2,18 +2,19 @@
   "private": true,
   "name": "aus-emergency-dispatcher",
   "description": "Australian Emergency Dispatcher",
-  "version": "0.29.1",
+  "version": "0.29.2",
   "author": "ActuallyLeviticus",
   "main": "app/background.js",
   "scripts": {
-    "dev": "nextron",
+    "art:installer": "node resources/_make-installer-art.mjs",
     "build": "nextron build --no-pack && node resources/_strip-app-pkg.mjs && electron-builder --win --publish never",
     "build:prod": "nextron build",
+    "dev": "nextron",
+    "lint": "eslint .",
     "package": "nextron build",
     "postinstall": "electron-builder install-app-deps",
-    "release": "npm run build && npm run publish",
-    "art:installer": "node resources/_make-installer-art.mjs",
-    "publish": "node resources/_publish.mjs"
+    "publish": "node resources/_publish.mjs",
+    "release": "npm run build && npm run publish"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@babel/preset-react": "^7.24.6",
+    "@eslint/js": "^9.27.0",
     "@types/node": "^20.11.16",
     "@types/react": "^18.2.52",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
@@ -50,6 +52,7 @@
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-tailwindcss": "^3.18.2",
+    "globals": "^11.12.0",
     "next": "^15.3.1",
     "nextron": "^9.5.0",
     "postcss": "^8.4.38",
@@ -59,6 +62,7 @@
     "react-icons": "^5.1.0",
     "react-spinners": "^0.13.8",
     "tailwindcss": "^3.4.3",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.48.1"
   }
 }

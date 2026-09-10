@@ -158,10 +158,14 @@ export type SceneResult = { ok: boolean; objects?: InjectedObject[]; error?: str
 export type ClearResult = { ok: boolean; removed?: number };
 
 export type GpsStatus = {
-  /** PMS50 GTN750 detected running in the cockpit */
+  /** PMS50 GTN750 detected running in the cockpit (from its sim L: vars) */
   gtnDetected: boolean;
   gtnPremium: boolean;
   currentPage: number;
+  /** TDS GTNXi installed on this PC — a filesystem check, so it holds with the sim closed */
+  tdsDetected: boolean;
+  /** what proved the GTNXi install (licence file, data folder, …) */
+  tdsEvidence: string | null;
   lastAction: string | null;
   lastResult: string | null;
 };
@@ -231,16 +235,14 @@ export const sim = {
   gpsGetStatus: () => window.ipc?.invoke?.('gps:getStatus') as Promise<GpsStatus | undefined>,
 
   // --- third-party scene-object packs (30West / HPG H145 Action Pack) ----
-  addonStatus: () =>
-    window.ipc?.invoke?.('addons:status') as Promise<AddonStatus | undefined>,
+  addonStatus: () => window.ipc?.invoke?.('addons:status') as Promise<AddonStatus | undefined>,
   addonInstall: () =>
     window.ipc?.invoke?.('addons:install') as Promise<
       { ok: boolean; message: string; installedFolders: string[] } | undefined
     >,
   addonOpenFolder: () => window.ipc?.invoke?.('addons:openFolder'),
   addonOpenUrl: (url: string) => window.ipc?.invoke?.('addons:openUrl', url),
-  addonPromptSuppressed: () =>
-    window.ipc?.invoke?.('addons:promptSuppressed') as Promise<boolean | undefined>,
+  addonPromptSuppressed: () => window.ipc?.invoke?.('addons:promptSuppressed') as Promise<boolean | undefined>,
   addonSuppressPrompt: (on: boolean) =>
     window.ipc?.invoke?.('addons:suppressPrompt', on) as Promise<boolean | undefined>,
 };
