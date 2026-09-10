@@ -1,0 +1,532 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "AED model builder",
+  "minVersion": "2.0"
+ },
+ "extensionsUsed": [],
+ "extensionsRequired": [],
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "AED_FireTruck"
+  }
+ ],
+ "meshes": [
+  {
+   "name": "AED_FireTruck",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1
+     },
+     "indices": 2,
+     "material": 0,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 3,
+      "NORMAL": 4
+     },
+     "indices": 5,
+     "material": 1,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 6,
+      "NORMAL": 7
+     },
+     "indices": 8,
+     "material": 2,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 9,
+      "NORMAL": 10
+     },
+     "indices": 11,
+     "material": 3,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 12,
+      "NORMAL": 13
+     },
+     "indices": 14,
+     "material": 4,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 15,
+      "NORMAL": 16
+     },
+     "indices": 17,
+     "material": 5,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 18,
+      "NORMAL": 19
+     },
+     "indices": 20,
+     "material": 6,
+     "mode": 4
+    }
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "AED_FireTruck_m0",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.06,
+     0.06,
+     0.07,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m1",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.78,
+     0.06,
+     0.06,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m2",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.12,
+     0.16,
+     0.2,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m3",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.78,
+     0.8,
+     0.83,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m4",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.72,
+     0.11,
+     0.11,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m5",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.1,
+     0.3,
+     0.75,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_FireTruck_m6",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.08,
+     0.08,
+     0.09,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "AED_FireTruck.bin",
+   "byteLength": 9720
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 288,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 576,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 648,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1224,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1800,
+   "byteLength": 144,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1944,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2232,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2520,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2592,
+   "byteLength": 864,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 3456,
+   "byteLength": 864,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4320,
+   "byteLength": 216,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4536,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4824,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5112,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5184,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5472,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5760,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5832,
+   "byteLength": 1728,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 7560,
+   "byteLength": 1728,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 9288,
+   "byteLength": 432,
+   "target": 34963
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    -4,
+    0.48,
+    -1.25
+   ],
+   "max": [
+    4,
+    0.88,
+    1.25
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3",
+   "min": [
+    -3.7,
+    0.9,
+    -1.275
+   ],
+   "max": [
+    4,
+    2.8,
+    1.275
+   ]
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5123,
+   "count": 72,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    3.94,
+    1.62,
+    -1.15
+   ],
+   "max": [
+    4.06,
+    2.42,
+    1.15
+   ]
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 8,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 9,
+   "componentType": 5126,
+   "count": 72,
+   "type": "VEC3",
+   "min": [
+    -4.1,
+    0.95,
+    -1.315
+   ],
+   "max": [
+    3.1,
+    3.1300000000000003,
+    1.315
+   ]
+  },
+  {
+   "bufferView": 10,
+   "componentType": 5126,
+   "count": 72,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 11,
+   "componentType": 5123,
+   "count": 108,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 12,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    2.4,
+    2.95,
+    0.050000000000000044
+   ],
+   "max": [
+    3.6,
+    3.1100000000000003,
+    0.75
+   ]
+  },
+  {
+   "bufferView": 13,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 14,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 15,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    2.4,
+    2.95,
+    -0.75
+   ],
+   "max": [
+    3.6,
+    3.1100000000000003,
+    -0.050000000000000044
+   ]
+  },
+  {
+   "bufferView": 16,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 17,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 18,
+   "componentType": 5126,
+   "count": 144,
+   "type": "VEC3",
+   "min": [
+    -3.475,
+    0,
+    -1.3499999999999999
+   ],
+   "max": [
+    3.475,
+    0.9,
+    1.3499999999999999
+   ]
+  },
+  {
+   "bufferView": 19,
+   "componentType": 5126,
+   "count": 144,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 20,
+   "componentType": 5123,
+   "count": 216,
+   "type": "SCALAR"
+  }
+ ]
+}

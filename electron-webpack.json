@@ -1,0 +1,9 @@
+{
+    "whiteListedModules": [
+        "react",
+        "react-dom"
+    ],
+    "main": {
+        "webpackConfig": "webpack.main.config.js"
+    }
+}

@@ -1,0 +1,18 @@
+node_modules
+*.log
+.next
+app
+dist
+.env
+
+# Impeccable working directory (keep tracked: config.json, live/config.json, design.json, surfaces/*.md, critique/*.md)
+.impeccable/*
+!.impeccable/config.json
+!.impeccable/live/
+.impeccable/live/*
+!.impeccable/live/config.json
+!.impeccable/design.json
+!.impeccable/surfaces/
+!.impeccable/critique/
+.claude/skills/impeccable/scripts/bin/
+*.tsbuildinfo

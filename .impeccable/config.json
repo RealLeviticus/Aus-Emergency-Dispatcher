@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-07T03:35:43.388Z",
+        "reason": "user confirmed Y2K/Windows-9x UI on a system-font stack (Tahoma/MS Sans Serif per y2k.md); index.css:20 Inter is legacy hub-template base CSS now affecting only the non-Y2K splash"
+      }
+    ]
+  }
+}

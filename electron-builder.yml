@@ -1,0 +1,85 @@
+appId: com.ausemergency.dispatcher
+productName: Aus Emergency Dispatcher
+copyright: Copyright 2025 ActuallyLeviticus
+directories:
+  output: dist
+  buildResources: resources
+
+# Where the app looks for updates, and where `npm run publish` uploads to.
+# Static files behind Caddy on the VPS — see RELEASING.md and Caddyfile.snippet.
+# electron-builder bakes this into app-update.yml inside the package, so a build
+# made with the wrong url will keep checking the wrong url forever.
+publish:
+  provider: generic
+  url: https://dispatcher.actuallyleviticus.xyz/updates
+  channel: latest
+  # Blockmap-based differential download: a patch release pulls only changed
+  # chunks instead of the whole ~83 MB installer.
+  useMultipleRangeRequest: true
+
+win:
+  icon: icon.ico
+  # We ship unsigned for now, so there is no publisher name for electron-updater
+  # to match and it would refuse the downloaded installer. Delete this line the
+  # day a signing cert is configured below.
+  verifyUpdateCodeSignature: false
+  # --- code signing (not yet configured) -------------------------------------
+  # Set CSC_LINK (path or base64 of the .pfx) and CSC_KEY_PASSWORD in the
+  # environment and electron-builder signs automatically - no config needed.
+  # Then DELETE the verifyUpdateCodeSignature line above.
+  #
+  # Do not reach for Azure Artifact Signing (ex-Trusted Signing): it is limited
+  # to orgs in the USA/Canada/EU/UK and individuals in the USA/Canada, so it is
+  # not open to an Australian developer. See RELEASING.md for what is.
+
+extraResources:
+  - from: resources/icon.ico
+    to: icon.ico
+  - from: resources/msfs-packages/aus-emergency-dispatcher-objects
+    to: msfs-packages/aus-emergency-dispatcher-objects
+    filter:
+      - "**/*"
+  # regedit shells out to cscript.exe against these, so they must sit outside
+  # the asar as real files. See main/regedit-vbs.ts.
+  - from: node_modules/regedit/vbs
+    to: regedit-vbs
+    filter:
+      - "**/*"
+
+nsis:
+  # Assisted wizard (welcome / licence / install mode / directory / finish)
+  # rather than the old silent one-click install.
+  oneClick: false
+  perMachine: false
+  allowElevation: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Aus Emergency Dispatcher
+  menuCategory: false
+  runAfterFinish: true
+  # Settings, accounts and the local job history live in %APPDATA%. Keep them on
+  # uninstall unless the user opts in on the uninstall prompt (installer.nsh).
+  deleteAppDataOnUninstall: false
+  displayLanguageSelector: false
+  license: LICENSE.txt
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
+  installerHeader: resources/installerHeader.bmp
+  installerSidebar: resources/installerSidebar.bmp
+  uninstallerSidebar: resources/uninstallerSidebar.bmp
+  include: resources/installer.nsh
+  artifactName: "${productName} Setup ${version}.${ext}"
+  uninstallDisplayName: "${productName} ${version}"
+  differentialPackage: true
+
+files:
+  - from: .
+    filter:
+      - package.json
+      - app
+
+protocols:
+  name: Aus Emergency Dispatcher
+  schemes: [aus-emergency-dispatcher]

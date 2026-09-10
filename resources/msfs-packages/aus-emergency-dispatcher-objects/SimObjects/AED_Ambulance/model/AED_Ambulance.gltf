@@ -1,0 +1,462 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "AED model builder",
+  "minVersion": "2.0"
+ },
+ "extensionsUsed": [],
+ "extensionsRequired": [],
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "AED_Ambulance"
+  }
+ ],
+ "meshes": [
+  {
+   "name": "AED_Ambulance",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1
+     },
+     "indices": 2,
+     "material": 0,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 3,
+      "NORMAL": 4
+     },
+     "indices": 5,
+     "material": 1,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 6,
+      "NORMAL": 7
+     },
+     "indices": 8,
+     "material": 2,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 9,
+      "NORMAL": 10
+     },
+     "indices": 11,
+     "material": 3,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 12,
+      "NORMAL": 13
+     },
+     "indices": 14,
+     "material": 4,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 15,
+      "NORMAL": 16
+     },
+     "indices": 17,
+     "material": 5,
+     "mode": 4
+    }
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "AED_Ambulance_m0",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.92,
+     0.92,
+     0.92,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Ambulance_m1",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.12,
+     0.16,
+     0.2,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Ambulance_m2",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.72,
+     0.11,
+     0.11,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Ambulance_m3",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.55,
+     0.85,
+     0.1,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Ambulance_m4",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.1,
+     0.3,
+     0.75,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Ambulance_m5",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.08,
+     0.08,
+     0.09,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "AED_Ambulance.bin",
+   "byteLength": 8424
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 576,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1152,
+   "byteLength": 144,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1296,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1584,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1872,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1944,
+   "byteLength": 864,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2808,
+   "byteLength": 864,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 3672,
+   "byteLength": 216,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 3888,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4464,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5040,
+   "byteLength": 144,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5184,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5472,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5760,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 5832,
+   "byteLength": 1152,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 6984,
+   "byteLength": 1152,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 8136,
+   "byteLength": 288,
+   "target": 34963
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3",
+   "min": [
+    -3,
+    0.48,
+    -1.17
+   ],
+   "max": [
+    3.35,
+    2.48,
+    1.17
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5123,
+   "count": 72,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    3.29,
+    1.16,
+    -1.05
+   ],
+   "max": [
+    3.41,
+    1.8599999999999999,
+    1.05
+   ]
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5126,
+   "count": 72,
+   "type": "VEC3",
+   "min": [
+    -3,
+    0.95,
+    -1.1949999999999998
+   ],
+   "max": [
+    2.4000000000000004,
+    2.64,
+    1.1949999999999998
+   ]
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5126,
+   "count": 72,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 8,
+   "componentType": 5123,
+   "count": 108,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 9,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3",
+   "min": [
+    -3,
+    0.55,
+    -1.1949999999999998
+   ],
+   "max": [
+    2.4000000000000004,
+    0.9500000000000001,
+    1.1949999999999998
+   ]
+  },
+  {
+   "bufferView": 10,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 11,
+   "componentType": 5123,
+   "count": 72,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 12,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    0.5,
+    2.48,
+    0.06
+   ],
+   "max": [
+    1.5,
+    2.64,
+    0.78
+   ]
+  },
+  {
+   "bufferView": 13,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 14,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 15,
+   "componentType": 5126,
+   "count": 96,
+   "type": "VEC3",
+   "min": [
+    -2.3,
+    0,
+    -1.23
+   ],
+   "max": [
+    2.3,
+    0.6400000000000001,
+    1.23
+   ]
+  },
+  {
+   "bufferView": 16,
+   "componentType": 5126,
+   "count": 96,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 17,
+   "componentType": 5123,
+   "count": 144,
+   "type": "SCALAR"
+  }
+ ]
+}

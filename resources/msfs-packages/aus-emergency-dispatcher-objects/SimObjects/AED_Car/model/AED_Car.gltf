@@ -1,0 +1,252 @@
+{
+ "asset": {
+  "version": "2.0",
+  "generator": "AED model builder",
+  "minVersion": "2.0"
+ },
+ "extensionsUsed": [],
+ "extensionsRequired": [],
+ "scene": 0,
+ "scenes": [
+  {
+   "nodes": [
+    0
+   ]
+  }
+ ],
+ "nodes": [
+  {
+   "mesh": 0,
+   "name": "AED_Car"
+  }
+ ],
+ "meshes": [
+  {
+   "name": "AED_Car",
+   "primitives": [
+    {
+     "attributes": {
+      "POSITION": 0,
+      "NORMAL": 1
+     },
+     "indices": 2,
+     "material": 0,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 3,
+      "NORMAL": 4
+     },
+     "indices": 5,
+     "material": 1,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 6,
+      "NORMAL": 7
+     },
+     "indices": 8,
+     "material": 2,
+     "mode": 4
+    }
+   ]
+  }
+ ],
+ "materials": [
+  {
+   "name": "AED_Car_m0",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.72,
+     0.11,
+     0.11,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Car_m1",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.12,
+     0.16,
+     0.2,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  },
+  {
+   "name": "AED_Car_m2",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.08,
+     0.08,
+     0.09,
+     1
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true,
+   "alphaMode": "OPAQUE"
+  }
+ ],
+ "buffers": [
+  {
+   "uri": "AED_Car.bin",
+   "byteLength": 5184
+  }
+ ],
+ "bufferViews": [
+  {
+   "buffer": 0,
+   "byteOffset": 0,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 576,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1152,
+   "byteLength": 144,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1296,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 1872,
+   "byteLength": 576,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2448,
+   "byteLength": 144,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 2592,
+   "byteLength": 1152,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 3744,
+   "byteLength": 1152,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 4896,
+   "byteLength": 288,
+   "target": 34963
+  }
+ ],
+ "accessors": [
+  {
+   "bufferView": 0,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3",
+   "min": [
+    -2.2,
+    0.24,
+    -0.89
+   ],
+   "max": [
+    2.2,
+    1.54,
+    0.89
+   ]
+  },
+  {
+   "bufferView": 1,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 2,
+   "componentType": 5123,
+   "count": 72,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 3,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3",
+   "min": [
+    -1.46,
+    0.95,
+    -0.75
+   ],
+   "max": [
+    0.99,
+    1.5,
+    0.75
+   ]
+  },
+  {
+   "bufferView": 4,
+   "componentType": 5126,
+   "count": 48,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 5,
+   "componentType": 5123,
+   "count": 72,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 6,
+   "componentType": 5126,
+   "count": 96,
+   "type": "VEC3",
+   "min": [
+    -1.74,
+    0,
+    -0.99
+   ],
+   "max": [
+    1.74,
+    0.544,
+    0.99
+   ]
+  },
+  {
+   "bufferView": 7,
+   "componentType": 5126,
+   "count": 96,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 8,
+   "componentType": 5123,
+   "count": 144,
+   "type": "SCALAR"
+  }
+ ]
+}

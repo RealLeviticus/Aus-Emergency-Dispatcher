@@ -1,0 +1,680 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    background: #0e131b;
+    color: #e2e8f0;
+    font-family: 'Manrope', 'Segoe UI', sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+button {
+    font-family: 'Inter', 'Segoe UI', sans-serif;
+}
+
+code,
+pre,
+.font-mono {
+    font-family: 'JetBrains Mono', Consolas, monospace;
+}
+
+/* ===========================================================================
+   Y2K / Windows 9x desktop skin  (see y2k.md)
+   Scoped under .y2k so the dark splash keeps its own look.
+   =========================================================================== */
+
+.y2k {
+    font-family: Tahoma, "Segoe UI", "MS Sans Serif", Geneva, sans-serif;
+    font-size: 12px;
+    line-height: 1.35;
+    -webkit-font-smoothing: none;
+    color: var(--w-text);
+    background: var(--w-teal);
+}
+
+.y2k * {
+    box-sizing: border-box;
+    cursor: default;
+}
+
+.y2k button,
+.y2k input,
+.y2k select,
+.y2k textarea,
+.y2k table,
+.y2k th,
+.y2k td {
+    font: inherit;
+    color: inherit;
+}
+
+.y2k {
+    --w-face: #d4d0c8;
+    --w-gray: #c0c0c0;
+    --w-hi: #ffffff;
+    --w-lo: #808080;
+    --w-lolo: #404040;
+    --w-navy: #000080;
+    --w-teal: #008080;
+    --w-text: #000000;
+    color: var(--w-text);
+    background: var(--w-teal);
+}
+
+.y2k ::selection {
+    background: var(--w-navy);
+    color: #fff;
+}
+
+/* Bevels ---------------------------------------------------------------- */
+.win-raised {
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+    box-shadow: inset -1px -1px 0 var(--w-lolo), inset 1px 1px 0 var(--w-face);
+}
+
+.win-sunken {
+    background: #fff;
+    border: 2px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    box-shadow: inset 1px 1px 0 var(--w-lolo);
+}
+
+.win-groove {
+    border: 2px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+/* Window frame -------------------------------------------------------------- */
+.win-window {
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lolo) var(--w-lolo) var(--w-hi);
+    box-shadow: inset -1px -1px 0 var(--w-lo), inset 1px 1px 0 var(--w-face);
+}
+
+.win-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 3px 3px 4px;
+    background: linear-gradient(to right, #000080, #1084d0);
+    color: #fff;
+    font-weight: 700;
+    user-select: none;
+}
+
+.win-titlebar.is-inactive {
+    background: linear-gradient(to right, #7b7b7b, #b5b5b5);
+}
+
+.win-titlebar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 16px;
+    padding: 0;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: #000;
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+}
+
+.win-titlebar-btn:active {
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+/* Menu + status bars ----------------------------------------------------- */
+.win-menu {
+    display: flex;
+    gap: 2px;
+    padding: 2px 4px;
+    user-select: none;
+}
+
+.win-menu > span {
+    padding: 2px 7px;
+}
+
+.win-menu > span:hover {
+    color: #fff;
+    background: var(--w-navy);
+}
+
+.win-menu u {
+    text-decoration: underline;
+}
+
+.win-statusbar {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--w-face);
+}
+
+.win-statusbar > span {
+    padding: 2px 8px;
+    border: 1px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+.win-statusbar > span.grow {
+    flex: 1;
+}
+
+/* Buttons -------------------------------------------------------------------- */
+.win-btn {
+    min-width: 75px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #000;
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+    box-shadow: inset -1px -1px 0 var(--w-lolo), inset 1px 1px 0 var(--w-face);
+}
+
+.win-btn:active:not(:disabled) {
+    padding: 5px 11px 3px 13px;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    box-shadow: inset 1px 1px 0 var(--w-lolo);
+}
+
+.win-btn:focus-visible {
+    outline: 1px dotted #000;
+    outline-offset: -4px;
+}
+
+.win-btn:disabled {
+    color: var(--w-lo);
+    text-shadow: 1px 1px 0 var(--w-hi);
+}
+
+.win-btn.is-default {
+    border-color: var(--w-lolo);
+}
+
+/* Group box (fieldset) ------------------------------------------------------- */
+.win-group {
+    position: relative;
+    min-width: 0;
+    margin-top: 8px;
+    padding: 14px 10px 10px;
+    border: 2px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+.win-group > legend,
+.win-group > .legend {
+    position: absolute;
+    top: -8px;
+    left: 8px;
+    padding: 0 4px;
+    background: var(--w-face);
+}
+
+/* List / grid ------------------------------------------------------------- */
+.win-list {
+    background: #fff;
+    border: 2px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    overflow: auto;
+}
+
+.win-row.is-selected {
+    background: var(--w-navy);
+    color: #fff;
+}
+
+.win-checkbox {
+    width: 13px;
+    height: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 2px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    font-size: 11px;
+    line-height: 1;
+    color: #000;
+}
+
+/* Scrollbars ------------------------------------------------------------- */
+.y2k *::-webkit-scrollbar {
+    width: 16px;
+    height: 16px;
+}
+
+.y2k *::-webkit-scrollbar-track {
+    background: #dfdfdf;
+    box-shadow: inset 0 0 0 1px #fff;
+}
+
+.y2k *::-webkit-scrollbar-thumb {
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+    border-radius: 0;
+}
+
+.y2k *::-webkit-scrollbar-button {
+    display: block;
+    height: 16px;
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+}
+
+/* Taskbar --------------------------------------------------------------- */
+.win-taskbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 30px;
+    padding: 2px 3px;
+    background: var(--w-face);
+    border-top: 2px solid var(--w-hi);
+}
+
+.win-startbtn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px 0 4px;
+    font-weight: 700;
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+}
+
+.win-startbtn:active,
+.win-startbtn.is-open {
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+.win-flag {
+    width: 16px;
+    height: 16px;
+    background:
+        linear-gradient(#ff3b30 0 0) 0 0 / 8px 8px,
+        linear-gradient(#ffcc00 0 0) 9px 0 / 7px 8px,
+        linear-gradient(#34c759 0 0) 0 9px / 8px 7px,
+        linear-gradient(#0a84ff 0 0) 9px 9px / 7px 7px;
+    background-repeat: no-repeat;
+    transform: skewX(-8deg);
+}
+
+.win-taskitem {
+    height: 22px;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--w-face);
+    border: 2px solid;
+    border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
+}
+
+.win-taskitem.is-active {
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    background: repeating-conic-gradient(#c0c0c0 0% 25%, #d4d0c8 0% 50%) 0 0 / 4px 4px;
+    font-weight: 700;
+}
+
+.win-tasktray {
+    margin-left: auto;
+    padding: 3px 10px;
+    border: 1px solid;
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+}
+
+.win-underline {
+    border-bottom: 1px solid var(--w-lo);
+    box-shadow: 0 1px 0 var(--w-hi);
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:focus {
+    -webkit-box-shadow: 0 0 0px 1000px rgb(39 39 42) inset;
+}
+
+.peer:focus~.input-floating-label,
+.peer:focus-within~.input-floating-label,
+.peer:not(:placeholder-shown)~.input-floating-label {
+    background-color: rgb(39 39 42);
+}
+
+.input.input-floating:disabled,
+.input.input-floating[disabled] {
+    background-color: rgb(39 39 42);
+}
+
+.titlebar {
+    -webkit-user-select: none;
+    -webkit-app-region: drag;
+}
+
+.titlebar-button {
+    -webkit-app-region: no-drag;
+}
+
+.prevent-select {
+    -webkit-user-select: none;
+    /* Safari */
+    -ms-user-select: none;
+    /* IE 10 and IE 11 */
+    user-select: none;
+    /* Standard syntax */
+}
+
+.logo-mark {
+    mix-blend-mode: screen;
+    background-color: transparent;
+    border-radius: 8px;
+}
+
+.hub-logo-mark {
+    background: linear-gradient(135deg, var(--splash-secondary), var(--splash-accent));
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--splash-secondary) 24%, transparent);
+}
+
+.hub-loader {
+    width: 24px;
+    height: 24px;
+    border: 4px solid color-mix(in srgb, var(--splash-secondary) 80%, transparent);
+    border-top-color: transparent;
+    border-radius: 9999px;
+    animation: hub-spin 0.8s linear infinite;
+}
+
+@keyframes hub-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.splash-stage {
+    position: relative;
+    isolation: isolate;
+    background:
+        radial-gradient(130% 110% at 50% -10%, color-mix(in srgb, var(--splash-secondary) 12%, transparent), transparent 55%),
+        var(--splash-background, #09090b);
+}
+
+/* CRT scanline + vignette, sits above the lights */
+.splash-stage::after {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    content: "";
+    background:
+        radial-gradient(circle at 50% 46%, transparent 0 28%, rgba(6, 8, 12, 0.55) 78%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.028) 0 1px, transparent 1px 3px);
+    mix-blend-mode: overlay;
+    pointer-events: none;
+}
+
+.splash-lights {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+/* ambient side-wash, strobing in sync with each beacon */
+.splash-lights::before,
+.splash-lights::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    opacity: 0;
+    animation: splash-wash 1.6s linear infinite;
+}
+
+.splash-lights::before {
+    background: radial-gradient(58% 92% at 0% 50%, color-mix(in srgb, var(--splash-secondary) 58%, transparent), transparent 70%);
+}
+
+.splash-lights::after {
+    background: radial-gradient(58% 92% at 100% 50%, color-mix(in srgb, var(--splash-accent) 58%, transparent), transparent 70%);
+    animation-delay: 0.8s;
+}
+
+.splash-beacon {
+    position: absolute;
+    top: 50%;
+    width: 46%;
+    height: 58%;
+    border-radius: 50%;
+    filter: blur(30px) saturate(1.5);
+    opacity: 0;
+    transform: translateY(-50%) scale(0.9);
+    animation: beacon-flash 1.6s linear infinite;
+}
+
+.splash-beacon-secondary {
+    left: -20%;
+    background: var(--splash-secondary);
+}
+
+.splash-beacon-accent {
+    right: -20%;
+    background: var(--splash-accent);
+    animation-delay: 0.8s;
+}
+
+/* single light sweep passing across the stage */
+.splash-scan {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 38%;
+    content: "";
+    background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--splash-secondary) 22%, transparent), transparent);
+    opacity: 0;
+    animation: splash-sweep 4.2s ease-in-out infinite;
+}
+
+/* military profile: hard-edged rectangular beacons, cooler wash */
+.splash-stage-military .splash-beacon {
+    border-radius: 3px;
+    width: 40%;
+    filter: blur(24px) saturate(1.2);
+}
+
+.splash-stage-military .splash-lights::before {
+    background: radial-gradient(52% 82% at 0% 50%, color-mix(in srgb, var(--splash-secondary) 46%, transparent), transparent 72%);
+}
+
+.splash-stage-military .splash-lights::after {
+    background: radial-gradient(52% 82% at 100% 50%, color-mix(in srgb, var(--splash-accent) 46%, transparent), transparent 72%);
+}
+
+/* HUD corner brackets around the identity block */
+.splash-frame::before,
+.splash-frame::after {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    content: "";
+    border: 1px solid color-mix(in srgb, var(--splash-secondary) 55%, transparent);
+    opacity: 0.7;
+}
+
+.splash-frame::before {
+    top: -6px;
+    left: -10px;
+    border-right: 0;
+    border-bottom: 0;
+}
+
+.splash-frame::after {
+    right: -10px;
+    bottom: -6px;
+    border-top: 0;
+    border-left: 0;
+}
+
+.splash-mark {
+    position: relative;
+    background: linear-gradient(140deg, var(--splash-secondary), var(--splash-accent));
+    box-shadow:
+        0 10px 30px color-mix(in srgb, var(--splash-accent) 30%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.splash-loader {
+    position: relative;
+    width: 136px;
+    height: 2px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 2px;
+}
+
+.splash-loader::after {
+    position: absolute;
+    inset: 0;
+    width: 38%;
+    content: "";
+    background: linear-gradient(90deg, transparent, var(--splash-secondary), var(--splash-accent), transparent);
+    animation: loading-sweep 1.4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+/* emergency-vehicle strobe: rapid double flash, then hold dark */
+@keyframes splash-wash {
+    0%, 5%, 11% { opacity: 0.6; }
+    3%, 8%, 34%, 100% { opacity: 0; }
+}
+
+@keyframes beacon-flash {
+    0%, 5%, 11% {
+        opacity: 0.92;
+        transform: translateY(-50%) scale(1.04);
+    }
+    3%, 8% {
+        opacity: 0.1;
+        transform: translateY(-50%) scale(0.94);
+    }
+    34%, 100% {
+        opacity: 0;
+        transform: translateY(-50%) scale(0.9);
+    }
+}
+
+@keyframes splash-sweep {
+    0% { transform: translateX(-140%); opacity: 0; }
+    38% { opacity: 0.9; }
+    70%, 100% { opacity: 0; }
+    100% { transform: translateX(360%); }
+}
+
+@keyframes loading-sweep {
+    from {
+        transform: translateX(-140%);
+    }
+
+    to {
+        transform: translateX(420%);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .splash-lights::before,
+    .splash-lights::after,
+    .splash-scan,
+    .splash-loader::after {
+        animation: none;
+    }
+
+    .splash-beacon {
+        animation: none;
+        opacity: 0.3;
+    }
+
+    .splash-loader::after {
+        width: 100%;
+        opacity: 0.5;
+    }
+}
+
+/* /home standby screen: static beacon-tinted ambient, no load animation */
+.standby-stage {
+    position: relative;
+    isolation: isolate;
+    background:
+        radial-gradient(80% 55% at 12% -5%, color-mix(in srgb, var(--splash-secondary) 14%, transparent), transparent 60%),
+        radial-gradient(80% 55% at 100% 105%, color-mix(in srgb, var(--splash-accent) 12%, transparent), transparent 58%),
+        #0e131b;
+}
+
+.standby-stage::before {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    content: "";
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 4px);
+    pointer-events: none;
+}
+
+.standby-pulse {
+    animation: standby-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes standby-pulse {
+    0%, 100% {
+        opacity: 0.9;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.35;
+        transform: scale(0.82);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .standby-pulse {
+        animation: none;
+    }
+}
+
+.release-notes h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #93c5fd;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.release-notes h4:first-child {
+    margin-top: 0;
+}
+
+.release-notes ul {
+    list-style: disc;
+    padding-left: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.release-notes li {
+    margin-bottom: 0.25rem;
+}
