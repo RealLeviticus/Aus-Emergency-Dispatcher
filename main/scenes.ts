@@ -120,7 +120,7 @@ function fallbacksFor(group: string): string[] {
   if (/ambulance/i.test(group)) return ['AED_Ambulance', 'AED_FireTruck', 'FuelTruck'];
   if (/boat|raft|ship|rig/i.test(group)) return ['AED_Boat'];
   if (/^(cas|worker|paramedic|cpr|officer|bystander|family)/.test(group))
-    return ['AED_Casualty', 'AED_Medic', 'Marshaller', 'Tarmac_Male_Summer_Caucasian'];
+    return ['AED_Casualty', 'AED_Medic', 'Tarmac_Male_Summer_Caucasian'];
   if (/fire|smoke|flare/i.test(group)) return ['AED_SpotFire', 'AED_FireSeat'];
   if (/deer|horse|dog/i.test(group)) return ['AED_Casualty'];
   return ['AED_Cordon'];
@@ -191,6 +191,9 @@ const FX_2024_ONLY = /^(Smoke_(Grey|White)_(SM|MED|LG)|Signal_Smoke_Orange|Engin
 
 const FX_GROUP = new Set(Object.keys(FX_NATIVE_2024));
 
+/** Titles whose built-in animation is wrong for any emergency scene. */
+const BANNED_ANIMATED = /^(Marshaller(_|$)|.*_Marshaller_)/i;
+
 /**
  * Base-game MSFS 2024 SimObjects, by group — a free fallback so every scene has
  * a real object even with NO add-on packs installed. Titles were read straight
@@ -233,10 +236,10 @@ const BASE_2024: Record<string, string[]> = {
   casSitting: ['Stretcher_RTC_Medic', 'Tarmac_Male_Summer_Caucasian', 'CharacterSim_Male_PassengerThin'],
   casShock: ['Stretcher01_orange', 'Stretcher_RTC_Medic'],
   casRescueBag: ['Rescue_Copter_Stretcher02', 'Stretcher01_orange'],
-  worker: ['Tarmac_Male_Summer_Caucasian', 'Tarmac_Male_Winter_Caucasian', 'Marshaller_Male_Summer_Caucasian'],
-  paramedic: ['Tarmac_Female_Summer_Caucasian', 'Tarmac_Male_Summer_Caucasian', 'Marshaller_Male_Summer_Caucasian'],
-  cpr: ['Tarmac_Male_Summer_Caucasian', 'Marshaller_Male_Summer_Caucasian'],
-  officer: ['Marshaller_Male_Summer_Caucasian', 'Tarmac_Male_Summer_Caucasian'],
+  worker: ['Tarmac_Male_Summer_Caucasian', 'Tarmac_Male_Winter_Caucasian', 'Tarmac_Female_Summer_Caucasian'],
+  paramedic: ['Tarmac_Female_Summer_Caucasian', 'Tarmac_Male_Summer_Caucasian', 'Tarmac_Male_Winter_Caucasian'],
+  cpr: ['Tarmac_Male_Summer_Caucasian', 'Tarmac_Female_Summer_Caucasian'],
+  officer: ['Tarmac_Male_Summer_Caucasian', 'Tarmac_Male_Winter_Caucasian'],
   bystander: ['CharacterSim_Male_PassengerAverage', 'CharacterSim_Female_PassengerAverage', 'Tarmac_Male_Summer_Caucasian'],
   family: ['CharacterSim_Female_PassengerAverage', 'CharacterSim_Male_PassengerAverage'],
   // markers / props
@@ -306,6 +309,11 @@ export function groupTitles(group: string): string[] {
     WINDSOCK,
   ];
   if (isFx && !simProfile.msfs2024) merged = merged.filter((t) => !FX_2024_ONLY.test(String(t).trim()));
+  // Never place an airport marshaller at an emergency scene: they loop the
+  // baton-waving marshalling animation, which reads as a bystander dancing next
+  // to a casualty. Filtered here so a pack title or a user override can't
+  // reintroduce one.
+  merged = merged.filter((t) => !BANNED_ANIMATED.test(String(t).trim()));
   const seen = new Set<string>();
   const outArr: string[] = [];
   for (const t of merged) {

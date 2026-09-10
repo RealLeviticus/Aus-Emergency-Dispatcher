@@ -3,282 +3,292 @@
     {
       "path": "SimObjects/AED_Car/model/AED_Car.gltf",
       "size": 3493,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car/model/AED_Car.bin",
       "size": 5184,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car/model/model.cfg",
       "size": 31,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car/sim.cfg",
       "size": 166,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car4x4/model/AED_Car4x4.gltf",
       "size": 4540,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car4x4/model/AED_Car4x4.bin",
       "size": 5832,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car4x4/model/model.cfg",
       "size": 34,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Car4x4/sim.cfg",
       "size": 174,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Wreck/model/AED_Wreck.gltf",
       "size": 6579,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Wreck/model/AED_Wreck.bin",
       "size": 6480,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Wreck/model/model.cfg",
       "size": 33,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Wreck/sim.cfg",
       "size": 172,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Truck/model/AED_Truck.gltf",
       "size": 5622,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Truck/model/AED_Truck.bin",
       "size": 6480,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Truck/model/model.cfg",
       "size": 33,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Truck/sim.cfg",
       "size": 168,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Ambulance/model/AED_Ambulance.gltf",
       "size": 6701,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Ambulance/model/AED_Ambulance.bin",
       "size": 8424,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Ambulance/model/model.cfg",
       "size": 37,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Ambulance/sim.cfg",
       "size": 170,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireTruck/model/AED_FireTruck.gltf",
       "size": 7697,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireTruck/model/AED_FireTruck.bin",
       "size": 9720,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireTruck/model/model.cfg",
       "size": 37,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireTruck/sim.cfg",
       "size": 175,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_PoliceCar/model/AED_PoliceCar.gltf",
       "size": 5615,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_PoliceCar/model/AED_PoliceCar.bin",
       "size": 8424,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_PoliceCar/model/model.cfg",
       "size": 37,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_PoliceCar/sim.cfg",
       "size": 175,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Boat/model/AED_Boat.gltf",
       "size": 6599,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Boat/model/AED_Boat.bin",
       "size": 5184,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Boat/model/model.cfg",
       "size": 32,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Boat/sim.cfg",
       "size": 169,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Cordon/model/AED_Cordon.gltf",
       "size": 3545,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Cordon/model/AED_Cordon.bin",
       "size": 2592,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Cordon/model/model.cfg",
       "size": 34,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Cordon/sim.cfg",
       "size": 177,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_SpotFire/model/AED_SpotFire.gltf",
-      "size": 8705,
-      "date": 134332638906420000
+      "size": 9103,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_SpotFire/model/AED_SpotFire.bin",
       "size": 5184,
-      "date": 134332638906420000
+      "date": 134335086900110000
+    },
+    {
+      "path": "SimObjects/AED_SpotFire/model/AED_SpotFire.xml",
+      "size": 779,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_SpotFire/model/model.cfg",
-      "size": 36,
-      "date": 134332638906420000
+      "size": 35,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_SpotFire/sim.cfg",
       "size": 189,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireSeat/model/AED_FireSeat.gltf",
-      "size": 8729,
-      "date": 134332638906420000
+      "size": 12322,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireSeat/model/AED_FireSeat.bin",
       "size": 12312,
-      "date": 134332638906420000
+      "date": 134335086900110000
+    },
+    {
+      "path": "SimObjects/AED_FireSeat/model/AED_FireSeat.xml",
+      "size": 1046,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireSeat/model/model.cfg",
-      "size": 36,
-      "date": 134332638906420000
+      "size": 35,
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_FireSeat/sim.cfg",
       "size": 207,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Casualty/model/AED_Casualty.gltf",
       "size": 3526,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Casualty/model/AED_Casualty.bin",
       "size": 3888,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Casualty/model/model.cfg",
       "size": 36,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Casualty/sim.cfg",
       "size": 189,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Medic/model/AED_Medic.gltf",
       "size": 3507,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Medic/model/AED_Medic.bin",
       "size": 3888,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Medic/model/model.cfg",
       "size": 33,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Medic/sim.cfg",
       "size": 193,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Patient/model/AED_Patient.gltf",
       "size": 4590,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Patient/model/AED_Patient.bin",
       "size": 4536,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Patient/model/model.cfg",
       "size": 35,
-      "date": 134332638906420000
+      "date": 134335086900110000
     },
     {
       "path": "SimObjects/AED_Patient/sim.cfg",
       "size": 191,
-      "date": 134332638906420000
+      "date": 134335086900110000
     }
   ]
 }

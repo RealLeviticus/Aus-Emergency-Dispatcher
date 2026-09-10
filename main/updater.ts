@@ -10,9 +10,9 @@ import { autoUpdater, type UpdateInfo, type ProgressInfo } from 'electron-update
  * Shape of the experience:
  *   launch    check, capped at 10s. An update downloads on the splash with a
  *             progress bar and installs before the console opens, so nobody
- *             joins a shared job on a stale build. "Skip" appears after a
- *             moment and demotes it to a background download that installs on
- *             quit instead.
+ *             joins a shared job on a stale build. There is no skip: the only
+ *             escape is DOWNLOAD_TIMEOUT_MS, after which the app starts and the
+ *             update installs on quit instead.
  *   running   re-check every 6h; a ready update raises a banner rather than
  *             interrupting anyone mid-job.
  *   dev       no checks at all - there is no packaged feed to check against.
@@ -46,15 +46,18 @@ export type UpdateState = {
   channel: UpdateChannel;
   /** the launch gate is still holding the splash */
   gating: boolean;
-  /** user chose to stop waiting; the download continues in the background */
-  deferred: boolean;
   lastCheckedAt: number | null;
 };
 
 /** How long the splash waits on the version check before giving up on it. */
 const CHECK_TIMEOUT_MS = 10_000;
-/** Hard cap on a launch-time download; past this we start the app regardless. */
-const DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
+/**
+ * Hard cap on a launch-time download; past this we start the app regardless and
+ * the update installs on quit instead. With the splash's "Skip" control removed
+ * this is the ONLY escape from a slow download, so keep it comfortably shorter
+ * than a user's patience.
+ */
+const DOWNLOAD_TIMEOUT_MS = 3 * 60_000;
 /** Background re-check while the console is open. */
 const RECHECK_INTERVAL_MS = 6 * 60 * 60_000;
 
@@ -73,7 +76,6 @@ let state: UpdateState = {
   error: null,
   channel: settings.get('updateChannel', 'latest'),
   gating: false,
-  deferred: false,
   lastCheckedAt: null,
 };
 
@@ -197,7 +199,7 @@ export async function runLaunchCheck(): Promise<LaunchVerdict> {
     return 'proceed';
   }
   wire();
-  patch({ gating: true, deferred: false, error: null });
+  patch({ gating: true, error: null });
 
   const verdict = new Promise<LaunchVerdict>((resolve) => {
     launchVerdict = resolve;
@@ -218,12 +220,6 @@ export async function runLaunchCheck(): Promise<LaunchVerdict> {
   clearTimeout(checkGuard);
   clearTimeout(downloadGuard);
   return result;
-}
-
-/** Stop waiting on the splash; the download carries on and installs on quit. */
-export function deferLaunchUpdate(): void {
-  patch({ deferred: true });
-  settleLaunch('proceed');
 }
 
 /** Manual check from the Help menu. Never gates anything. */
@@ -281,10 +277,6 @@ export function registerUpdaterIpc(): void {
   ipcMain.handle('update:check', () => checkNow());
   ipcMain.handle('update:install', () => {
     install();
-    return getState();
-  });
-  ipcMain.handle('update:defer', () => {
-    deferLaunchUpdate();
     return getState();
   });
   ipcMain.handle('update:setChannel', (_e, channel: UpdateChannel) =>

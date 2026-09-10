@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.0">
+    <LODS>
+        <LOD minSize="0" ModelFile="AED_SpotFire.gltf"/>
+    </LODS>
+    <Behaviors>
+        <Include ModelBehaviorFile="Asobo\Generic\FX.xml"/>
+        <Component ID="AED_fx_fire" Node="fx_fire">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{75A93861-D48A-456B-BCA5-7C3AFF31C0F6}</FX_GUID>
+                <FX_CODE>1 0 &gt;</FX_CODE>
+            </UseTemplate>
+        </Component>
+        <Component ID="AED_fx_smoke" Node="fx_smoke">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{15B35478-6321-4480-8642-EB44248318E2}</FX_GUID>
+                <FX_CODE>1 0 &gt;</FX_CODE>
+            </UseTemplate>
+        </Component>
+    </Behaviors>
+</ModelInfo>

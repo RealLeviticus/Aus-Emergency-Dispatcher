@@ -16,7 +16,8 @@
  *
  * Run: `node resources/msfs-packages/_build.mjs`
  */
-import { mkdirSync, writeFileSync, rmSync } from 'fs';
+import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -97,12 +98,45 @@ function wheels(wheelBase, halfTrack, r, w) {
   return out;
 }
 
+// ---- MSFS 2024 base-game visual effects ----------------------------
+// GUIDs read from the in-sim Templates/Instances Debugger (Asset Packages tab).
+// These ship with MSFS 2024 itself, so attaching them costs us nothing and
+// needs no VFX pack. Keep the effect NAME in the comment: if a sim update ever
+// renumbers a GUID, the name is how you find the new one.
+//
+// NOTE: these are MSFS 2024 GUIDs. On MSFS 2020 they will not resolve, which is
+// why the emissive flame/smoke geometry below stays as the fallback.
+const FX = {
+  fireSmall: '{75A93861-D48A-456B-BCA5-7C3AFF31C0F6}', // FX_Fire_1_Small
+  fireMid: '{F3E05B57-D9F9-4B93-A2B1-39013CD0FE57}', // FX_Fire_1_Middle
+  fireLarge: '{3A5257C7-5BDB-4A73-8F46-05F4A326C386}', // FX_Fire_1_Large
+  fire2Small: '{4018A932-D68B-45F8-9E45-DBBD9FBF4A4C}', // FX_Fire_2_Small
+  fire2Mid: '{EA215CB3-2B05-4AD4-99FC-9FFE32E22B31}', // FX_Fire_2_Middle
+  fire2Large: '{F3A3155E-FE7D-45A6-ACA4-0139EF0EF24F}', // FX_Fire_2_Large
+  smokeFire: '{15B35478-6321-4480-8642-EB44248318E2}', // FX_Smoke_Fire
+  smokeForest: '{58B6EEB6-5A9E-4C8A-9AF1-B93072FA7F56}', // FX_Smoke_Fire_Forest
+  carFire: '{FC14BE81-C174-4E26-A710-8A52A2339A24}', // FX_Car_Fire
+  carSmoke: '{4DA75760-5631-4B26-8852-8C6250D1EAA5}', // FX_Car_Smoke
+  carExplosion: '{1246BCD2-95D3-42DC-A684-19BA748C67E1}', // FX_Car_Explosion
+  crashSmoke: '{1A1E6AB2-9ED2-4BB7-A5C9-51AE7B0952FA}', // FX_Crash_Smoke
+  poleFire1: '{A6BCBFAF-7653-4F81-B061-98A5B69E005F}', // FX_Fire_ElectricPole_1
+  poleFire2: '{D9AEC8F3-8861-40C7-9830-1E03807AE98B}', // FX_Fire_ElectricPole_2
+  smokeRescue: '{0B04E638-75DF-4BA2-B93C-0B0DCDCF7F2F}', // FX_Smoke_Rescue
+  smokeSOS: '{E9193091-7488-4A9B-BA47-C9A1FB209052}', // Smoke_SOS
+  smokeOilRig: '{E7A6FC13-C4C7-4951-83F4-DF906FE78B9B}', // FX_Smoke_OilRig
+  sparks: '{74EA9C0C-C132-4B57-A88C-FE1F29A48A1C}', // Sparks01
+  heat: '{605EBB42-DA6B-4965-9199-9AE59BF7FD83}', // HeatEffect
+};
+
 // ---- model builder -------------------------------------------------
-function modelGltf(name, parts) {
+function modelGltf(name, parts, fx = []) {
   const groups = new Map();
   for (const p of parts) {
-    const key = p.col.join(',');
-    if (!groups.has(key)) groups.set(key, { col: p.col, pos: [], nrm: [], idx: [] });
+    // key on the full surface, not just colour — two parts sharing a colour but
+    // differing in glow or transparency need their own material.
+    const key = `${p.col.join(',')}|${p.emit ?? 0}|${p.alpha ?? 1}`;
+    if (!groups.has(key))
+      groups.set(key, { col: p.col, emit: p.emit, alpha: p.alpha, pos: [], nrm: [], idx: [] });
     const g = groups.get(key);
     const base = g.pos.length / 3;
     const b = faceBox(...p.box);
@@ -151,11 +185,22 @@ function modelGltf(name, parts) {
     const idxAcc = accessors.length;
     accessors.push({ bufferView: idxView, componentType: 5123, count: g.idx.length, type: 'SCALAR' });
 
-    materials.push({
+    // `emit` makes a surface self-lit (flame, beacon) so it still reads at dusk
+    // and at night, when a plain diffuse orange box goes black. `alpha` turns a
+    // part translucent (smoke) instead of a solid grey slab.
+    const alpha = g.alpha ?? 1;
+    const mat = {
       name: `${name}_m${mi}`,
-      pbrMetallicRoughness: { baseColorFactor: [...g.col, 1], metallicFactor: 0, roughnessFactor: 0.85 },
+      pbrMetallicRoughness: {
+        baseColorFactor: [...g.col, alpha],
+        metallicFactor: 0,
+        roughnessFactor: g.emit ? 1 : 0.85,
+      },
       doubleSided: true,
-    });
+    };
+    if (g.emit) mat.emissiveFactor = g.col.map((c) => Math.min(1, c * g.emit));
+    if (alpha < 1) mat.alphaMode = 'BLEND';
+    materials.push(mat);
     primitives.push({ attributes: { POSITION: posAcc, NORMAL: nrmAcc }, indices: idxAcc, material: mi, mode: 4 });
     mi++;
   }
@@ -166,10 +211,12 @@ function modelGltf(name, parts) {
     extensionsUsed: [],
     extensionsRequired: [],
     scene: 0,
-    scenes: [{ nodes: [0] }],
-    nodes: [{ mesh: 0, name }],
+    scenes: [{ nodes: [0, ...fx.map((_, i) => i + 1)] }],
+    // The mesh, then one empty node per effect. ASOBO_GT_FX attaches to a node
+    // by name, so these exist purely as attach points.
+    nodes: [{ mesh: 0, name }, ...fx.map((f) => ({ name: f.node, translation: f.at ?? [0, 0, 0] }))],
     meshes: [{ name, primitives }],
-    materials: materials.map((m) => ({ ...m, alphaMode: 'OPAQUE' })),
+    materials: materials.map((m) => ({ alphaMode: 'OPAQUE', ...m })),
     buffers: [{ uri: `${name}.bin`, byteLength: bin.length }],
     bufferViews,
     accessors,
@@ -308,37 +355,52 @@ const MODELS = [
   {
     title: 'AED_SpotFire',
     desc: 'Spot fire with drifting smoke',
+    // The sim's own fire + smoke, sitting inside the flame geometry.
+    fx: [
+      { node: 'fx_fire', guid: FX.fireSmall, at: [0, 0.25, 0] },
+      { node: 'fx_smoke', guid: FX.smokeFire, at: [0, 0.7, 0] },
+    ],
     parts: [
       { box: [0, 0, 0, 1.7, 0.15, 1.7], col: C.charred }, // burnt ground
-      { box: [0, 0.05, 0, 1.0, 0.75, 1.0], col: C.ember, yaw: 12 }, // flame base
-      { box: [0, 0.6, 0, 0.7, 0.7, 0.7], col: C.fireRed, yaw: -22 }, // flame mid
-      { box: [0, 1.15, 0, 0.42, 0.6, 0.42], col: C.hiVis, yaw: 28 }, // flame
-      { box: [0, 1.65, 0, 0.24, 0.5, 0.24], col: C.fireYellow, yaw: -10 }, // flame tip
-      // leaning smoke plume — drifts downwind (+x) and widens with height
-      { box: [0.25, 1.5, 0.1, 0.95, 1.1, 0.95], col: C.smokeDk, yaw: 18 },
-      { box: [0.7, 2.5, 0.2, 1.35, 1.2, 1.35], col: C.smokeMd, yaw: -14 },
-      { box: [1.35, 3.6, 0.35, 1.85, 1.4, 1.85], col: C.smokeLt, yaw: 22 },
+      { box: [0, 0.05, 0, 1.0, 0.75, 1.0], col: C.ember, yaw: 12, emit: 1.6 }, // flame base
+      { box: [0, 0.6, 0, 0.7, 0.7, 0.7], col: C.fireRed, yaw: -22, emit: 1.8 }, // flame mid
+      { box: [0, 1.15, 0, 0.42, 0.6, 0.42], col: C.hiVis, yaw: 28, emit: 2.0 }, // flame
+      { box: [0, 1.65, 0, 0.24, 0.5, 0.24], col: C.fireYellow, yaw: -10, emit: 2.2 }, // flame tip
+      // leaning smoke plume — drifts downwind (+x) and widens with height.
+      // Translucent and thinning upward so it reads as smoke, not grey blocks.
+      { box: [0.25, 1.5, 0.1, 0.95, 1.1, 0.95], col: C.smokeDk, yaw: 18, alpha: 0.55 },
+      { box: [0.7, 2.5, 0.2, 1.35, 1.2, 1.35], col: C.smokeMd, yaw: -14, alpha: 0.4 },
+      { box: [1.35, 3.6, 0.35, 1.85, 1.4, 1.85], col: C.smokeLt, yaw: 22, alpha: 0.28 },
     ],
   },
   {
     title: 'AED_FireSeat',
     desc: 'Main fire — flame front and tall smoke column',
+    // Bushfire: two large fire effects along the flame front, under the sim's
+    // own forest-fire smoke column.
+    fx: [
+      { node: 'fx_fire', guid: FX.fire2Large, at: [0, 0.3, -1.6] },
+      { node: 'fx_fire_b', guid: FX.fireLarge, at: [0, 0.3, 1.6] },
+      { node: 'fx_smoke', guid: FX.smokeForest, at: [0, 1.0, 0] },
+    ],
     parts: [
       { box: [0, 0, 0, 5.5, 0.2, 5.5], col: C.charred }, // burnt ground
       // flame front: a row of flames
       ...[-1.6, 0, 1.6].flatMap((fz) => [
-        { box: [0, 0.05, fz, 1.6, 1.3, 1.4], col: C.ember, yaw: 10 },
-        { box: [0, 1.0, fz, 1.1, 1.2, 1.0], col: C.fireRed, yaw: -18 },
-        { box: [0, 1.9, fz, 0.7, 1.0, 0.7], col: C.hiVis, yaw: 24 },
-        { box: [0, 2.6, fz, 0.4, 0.8, 0.4], col: C.fireYellow, yaw: -8 },
+        { box: [0, 0.05, fz, 1.6, 1.3, 1.4], col: C.ember, yaw: 10, emit: 1.6 },
+        { box: [0, 1.0, fz, 1.1, 1.2, 1.0], col: C.fireRed, yaw: -18, emit: 1.8 },
+        { box: [0, 1.9, fz, 0.7, 1.0, 0.7], col: C.hiVis, yaw: 24, emit: 2.0 },
+        { box: [0, 2.6, fz, 0.4, 0.8, 0.4], col: C.fireYellow, yaw: -8, emit: 2.2 },
       ]),
-      // tall leaning smoke column (~16 m), widening + drifting downwind
-      { box: [0.4, 2.4, 0, 3.2, 2.2, 3.4], col: C.smokeDk, yaw: 12 },
-      { box: [1.2, 4.4, 0.3, 4.6, 2.4, 4.6], col: C.smokeDk, yaw: -10 },
-      { box: [2.6, 6.6, 0.7, 6.0, 2.6, 6.0], col: C.smokeMd, yaw: 16 },
-      { box: [4.6, 9.0, 1.1, 7.4, 2.8, 7.2], col: C.smokeMd, yaw: -12 },
-      { box: [7.2, 11.6, 1.6, 8.6, 3.0, 8.4], col: C.smokeLt, yaw: 14 },
-      { box: [10.5, 14.4, 2.0, 9.6, 3.2, 9.2], col: C.smokeLt, yaw: -8 },
+      // tall leaning smoke column (~16 m), widening + drifting downwind, and
+      // thinning with height so the top of the column fades out rather than
+      // ending in a hard grey box.
+      { box: [0.4, 2.4, 0, 3.2, 2.2, 3.4], col: C.smokeDk, yaw: 12, alpha: 0.6 },
+      { box: [1.2, 4.4, 0.3, 4.6, 2.4, 4.6], col: C.smokeDk, yaw: -10, alpha: 0.5 },
+      { box: [2.6, 6.6, 0.7, 6.0, 2.6, 6.0], col: C.smokeMd, yaw: 16, alpha: 0.42 },
+      { box: [4.6, 9.0, 1.1, 7.4, 2.8, 7.2], col: C.smokeMd, yaw: -12, alpha: 0.34 },
+      { box: [7.2, 11.6, 1.6, 8.6, 3.0, 8.4], col: C.smokeLt, yaw: 14, alpha: 0.26 },
+      { box: [10.5, 14.4, 2.0, 9.6, 3.2, 9.2], col: C.smokeLt, yaw: -8, alpha: 0.18 },
     ],
   },
   { title: 'AED_Casualty', desc: 'Casualty / bystander (hi-vis)', parts: figure(C.hiVis) },
@@ -373,24 +435,6 @@ function figure(vestCol) {
 // ---- write package ----------------------------------------------------
 mkdirSync(ROOT, { recursive: true });
 
-writeFileSync(
-  path.join(ROOT, 'manifest.json'),
-  JSON.stringify(
-    {
-      dependencies: [],
-      content_type: 'MISC',
-      title: 'Aus Emergency Dispatcher — Scene Objects',
-      manufacturer: 'Aus Emergency Dispatcher',
-      creator: 'Aus Emergency Dispatcher',
-      package_version: '1.3.0',
-      minimum_game_version: '1.0.0',
-      release_notes: { neutral: { LastUpdate: '', OlderHistory: '' } },
-    },
-    null,
-    2,
-  ),
-);
-
 const layout = { content: [] };
 // MSFS layout.json `date` is a Windows FILETIME (100 ns ticks since 1601-01-01).
 // A real value (not 0) keeps the sim from treating the package as stale/invalid.
@@ -420,16 +464,105 @@ function simCfg(m) {
   );
 }
 
+/**
+ * Model-behaviours XML. Only objects carrying a visual effect get one — every
+ * other model.cfg still points straight at its glTF, so a mistake in here can
+ * only affect the fire objects rather than break the whole package.
+ *
+ * Shape is per the SDK: ModelInfo > LODS > LOD, plus Behaviors that include
+ * Asobo's FX template and instantiate ASOBO_GT_FX once per attach node.
+ * FX_CODE is the RPN gating emission; `1 0 >` is simply always-on.
+ */
+function modelXml(m) {
+  const fx = m.fx
+    .map(
+      (f) =>
+        `        <Component ID="AED_${f.node}" Node="${f.node}">\n` +
+        `            <UseTemplate Name="ASOBO_GT_FX">\n` +
+        `                <FX_GUID>${f.guid}</FX_GUID>\n` +
+        `                <FX_CODE>1 0 &gt;</FX_CODE>\n` +
+        `            </UseTemplate>\n` +
+        `        </Component>`,
+    )
+    .join('\n');
+  const sep = String.fromCharCode(92); // Asobo\Generic\FX.xml
+  return (
+    `<?xml version="1.0" encoding="utf-8"?>\n` +
+    `<ModelInfo version="1.0">\n` +
+    `    <LODS>\n` +
+    `        <LOD minSize="0" ModelFile="${m.title}.gltf"/>\n` +
+    `    </LODS>\n` +
+    `    <Behaviors>\n` +
+    `        <Include ModelBehaviorFile="Asobo${sep}Generic${sep}FX.xml"/>\n` +
+    `${fx}\n` +
+    `    </Behaviors>\n` +
+    `</ModelInfo>\n`
+  );
+}
+
 for (const m of MODELS) {
-  const { gltf, bin } = modelGltf(m.title, m.parts);
+  const fx = m.fx ?? [];
+  const { gltf, bin } = modelGltf(m.title, m.parts, fx);
   const base = `SimObjects/${m.title}`;
   addFile(`${base}/model/${m.title}.gltf`, Buffer.from(gltf));
   addFile(`${base}/model/${m.title}.bin`, bin);
-  addFile(`${base}/model/model.cfg`, Buffer.from(`[MODELS]\nnormal = ${m.title}.gltf\n`));
+  if (fx.length) {
+    addFile(`${base}/model/${m.title}.xml`, Buffer.from(modelXml(m)));
+    addFile(`${base}/model/model.cfg`, Buffer.from(`[MODELS]\nnormal = ${m.title}.xml\n`));
+  } else {
+    addFile(`${base}/model/model.cfg`, Buffer.from(`[MODELS]\nnormal = ${m.title}.gltf\n`));
+  }
   addFile(`${base}/sim.cfg`, Buffer.from(simCfg(m)));
 }
 
 writeFileSync(path.join(ROOT, 'layout.json'), JSON.stringify(layout, null, 2));
 
+// ---- manifest, versioned BY CONTENT ------------------------------------
+// The app only reinstalls the Community package when it looks stale. That check
+// used to compare a hard-coded package_version, so changing a model without
+// remembering to bump it shipped an app update whose new objects never reached
+// anyone's Community folder. The hash below is derived from every generated
+// file, and the patch number auto-increments whenever it changes, so a content
+// change can no longer go out silently.
+const contentHash = createHash('sha256');
+for (const c of [...layout.content].sort((a, b) => a.path.localeCompare(b.path))) {
+  contentHash.update(c.path);
+  contentHash.update(readFileSync(path.join(ROOT, c.path)));
+}
+const hash = contentHash.digest('hex').slice(0, 12);
+
+const MANIFEST_MAJOR_MINOR = '1.4';
+let patch = 0;
+try {
+  const prev = JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+  const prevPatch = Number(String(prev.package_version ?? '').split('.')[2] ?? 0) || 0;
+  // Same content -> keep the version so a rebuild is a no-op for the sim.
+  patch = prev.aed_content_hash === hash ? prevPatch : prevPatch + 1;
+} catch {
+  /* first build */
+}
+
+writeFileSync(
+  path.join(ROOT, 'manifest.json'),
+  JSON.stringify(
+    {
+      dependencies: [],
+      content_type: 'MISC',
+      title: 'Aus Emergency Dispatcher — Scene Objects',
+      manufacturer: 'Aus Emergency Dispatcher',
+      creator: 'Aus Emergency Dispatcher',
+      package_version: `${MANIFEST_MAJOR_MINOR}.${patch}`,
+      minimum_game_version: '1.0.0',
+      release_notes: { neutral: { LastUpdate: '', OlderHistory: '' } },
+      // Not an MSFS key — the app reads it to decide whether a user's installed
+      // copy is out of date. MSFS ignores unknown manifest fields.
+      aed_content_hash: hash,
+    },
+    null,
+    2,
+  ),
+);
+
 console.log(`Built ${MODELS.length} models -> ${ROOT}`);
+console.log(`Package version ${MANIFEST_MAJOR_MINOR}.${patch}  content ${hash}`);
 console.log('Titles:', MODELS.map((m) => m.title).join(', '));

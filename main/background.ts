@@ -27,6 +27,8 @@ import { configureRegeditScripts } from './regedit-vbs';
 import type { SplashProfileId } from '../renderer/config/splash';
 
 let splashWindow: BrowserWindow | null = null;
+/** set when the startup auto-install actually refreshed the Community package */
+let packageNote: string | null = null;
 let mainWindow: BrowserWindow | null = null;
 let splashStartTime = 0;
 
@@ -270,8 +272,15 @@ app.whenReady().then(() => {
   void writeSceneTitleExample();
   void writeCreditsFile();
   // Put the shared scene-object package into the MSFS Community folder(s) so every
-  // operator sees the same objects with no setup.
-  void autoInstallIfMissing();
+  // operator sees the same objects with no setup. An app update that changes the
+  // models or their effects is pushed out here too, so nobody reinstalls by hand.
+  void autoInstallIfMissing().then((r) => {
+    if (r.action === 'updated') {
+      // MSFS only reads Community packages at startup, so say so.
+      packageNote = `Scene objects updated to ${r.version} in ${r.folders} Community folder(s) — restart MSFS to load the new models and fire/smoke effects.`;
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('packages:note', packageNote);
+    }
+  });
   // If the user has dropped the third-party pack ZIPs into the AddonPacks folder,
   // extract them into every Community folder (licences forbid us bundling them).
   void autoInstallAddonsIfPresent();
@@ -384,11 +393,6 @@ app.on('activate', () => {
   }
 });
 
-let skipSplashWait = false;
-ipcMain.on('splash:skip', () => {
-  skipSplashWait = true;
-});
-
 ipcMain.on('openApp', async () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
@@ -396,7 +400,7 @@ ipcMain.on('openApp', async () => {
   }
 
   const elapsed = Date.now() - splashStartTime;
-  const waitTime = skipSplashWait ? 0 : Math.max(0, splashMinDuration - elapsed);
+  const waitTime = Math.max(0, splashMinDuration - elapsed);
 
   setTimeout(async () => {
     if (splashWindow && !splashWindow.isDestroyed()) {
@@ -640,6 +644,7 @@ ipcMain.handle('window:reload', () => {
 
 // --- bundled MSFS scene-object package --------------------------------
 ipcMain.handle('packages:status', () => packageStatus());
+ipcMain.handle('packages:note', () => packageNote);
 ipcMain.handle('packages:install', () => installPackage());
 ipcMain.handle('packages:openCommunity', async () => {
   const s = await packageStatus();

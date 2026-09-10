@@ -162,13 +162,21 @@ pre,
     display: flex;
     gap: 2px;
     padding: 2px;
-    background: var(--w-face);
+    /* Same navy-to-blue run as the title bar, so the frame reads as one piece. */
+    background: linear-gradient(to right, var(--w-navy), #1084d0);
+    color: #fff;
+}
+
+/* A real fault the operator should act on — see `faultText` in DispatchConsole. */
+.win-statusbar.is-error {
+    background: linear-gradient(to right, #7a0000, #c0392b);
 }
 
 .win-statusbar > span {
     padding: 2px 8px;
+    /* Inset edges drawn against the coloured bar rather than the grey face. */
     border: 1px solid;
-    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
+    border-color: rgba(0, 0, 0, 0.35) rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.28) rgba(0, 0, 0, 0.35);
 }
 
 .win-statusbar > span.grow {

@@ -58,12 +58,30 @@ export type PackageStatus = {
   installedIn: string[];
 };
 
-/** Read `package_version` from an installed/bundled manifest.json (or ''). */
+/**
+ * Identity of an installed/bundled package: the content hash the build script
+ * stamps into manifest.json, falling back to package_version for copies
+ * installed before hashing existed (and '' when there is no manifest).
+ *
+ * The hash is what makes an app update carry model/FX changes through to the
+ * user's Community folder. Comparing package_version alone meant a model change
+ * that forgot to bump the version shipped to nobody.
+ */
 async function manifestVersion(dir: string): Promise<string> {
   try {
-    const raw = await fs.readFile(path.join(dir, 'manifest.json'), 'utf8');
-    const v = JSON.parse(raw)?.package_version;
+    const v = JSON.parse(await fs.readFile(path.join(dir, 'manifest.json'), 'utf8'))?.package_version;
     return typeof v === 'string' ? v : '';
+  } catch {
+    return '';
+  }
+}
+
+async function manifestId(dir: string): Promise<string> {
+  try {
+    const raw = await fs.readFile(path.join(dir, 'manifest.json'), 'utf8');
+    const m = JSON.parse(raw) ?? {};
+    if (typeof m.aed_content_hash === 'string' && m.aed_content_hash) return `h:${m.aed_content_hash}`;
+    return typeof m.package_version === 'string' ? `v:${m.package_version}` : '';
   } catch {
     return '';
   }
@@ -72,17 +90,17 @@ async function manifestVersion(dir: string): Promise<string> {
 export async function packageStatus(): Promise<PackageStatus & { staleIn: string[] }> {
   const src = sourceDir();
   const folders = await communityFolders();
-  const bundled = (await manifestVersion(src)) || PKG_VERSION;
+  const bundled = (await manifestId(src)) || `v:${PKG_VERSION}`;
   const installedIn: string[] = [];
   const staleIn: string[] = [];
   for (const f of folders) {
     const dir = path.join(f, PKG_NAME);
     if (!(await exists(path.join(dir, 'manifest.json')))) continue;
     installedIn.push(f);
-    if ((await manifestVersion(dir)) !== bundled) staleIn.push(f);
+    if ((await manifestId(dir)) !== bundled) staleIn.push(f);
   }
   return {
-    bundledVersion: bundled,
+    bundledVersion: (await manifestVersion(src)) || PKG_VERSION,
     source: src,
     hasSource: await exists(path.join(src, 'manifest.json')),
     communityFolders: folders,
@@ -146,15 +164,38 @@ async function recordInstalledPackages(dirs: string[]): Promise<void> {
 
 /** Copy in on startup if a Community folder is missing the package OR has an
  *  out-of-date copy (so a fixed package replaces a broken earlier one). */
-export async function autoInstallIfMissing(): Promise<void> {
+export type AutoInstallResult =
+  | { action: 'none' }
+  | { action: 'installed' | 'updated'; version: string; folders: number };
+
+/**
+ * Runs on every launch. An app update that changes the scene objects (new
+ * models, new fire/smoke effects) has to reach the user's Community folder on
+ * its own — nobody should have to reinstall a package by hand to get them.
+ *
+ * Returns what it did so the console can tell the operator to restart MSFS:
+ * the sim reads Community packages at startup, so a copy made while it is
+ * running will not be seen until next time.
+ */
+export async function autoInstallIfMissing(): Promise<AutoInstallResult> {
   try {
     const status = await packageStatus();
-    if (!status.hasSource) return;
-    if (status.communityFolders.length === 0) return;
+    if (!status.hasSource) return { action: 'none' };
+    if (status.communityFolders.length === 0) return { action: 'none' };
     const upToDate = status.installedIn.length === status.communityFolders.length && status.staleIn.length === 0;
-    if (upToDate) return;
-    await installPackage();
+    if (upToDate) return { action: 'none' };
+    // "updated" only when a copy was already there — a first install needs no
+    // sim restart, because MSFS has not indexed the package yet either way.
+    const hadOne = status.installedIn.length > 0;
+    const res = await installPackage();
+    if (!res.ok) return { action: 'none' };
+    return {
+      action: hadOne ? 'updated' : 'installed',
+      version: status.bundledVersion,
+      folders: res.installed.length,
+    };
   } catch {
     /* best effort — never block startup */
+    return { action: 'none' };
   }
 }

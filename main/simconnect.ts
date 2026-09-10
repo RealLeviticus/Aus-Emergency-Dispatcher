@@ -1301,7 +1301,9 @@ export class SimBridge extends EventEmitter {
       lastResult: `${legs.length} legs → ${targets.length} target(s)`,
     };
     const where = targets.join(', ');
-    this.patch({ lastError: `GPS: route exported → ${where}.` });
+    // Deliberately NOT patched into lastError: a successful export is not a
+    // fault, and the console colours its status bar red off that field. The
+    // outcome already reaches the UI through the returned `note`.
 
     // The two units import differently and neither can be triggered from
     // outside the sim, so the note has to say which one to drive and how.

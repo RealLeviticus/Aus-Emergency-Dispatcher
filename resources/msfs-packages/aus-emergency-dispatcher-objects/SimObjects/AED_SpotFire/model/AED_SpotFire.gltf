@@ -10,7 +10,9 @@
  "scenes": [
   {
    "nodes": [
-    0
+    0,
+    1,
+    2
    ]
   }
  ],
@@ -18,6 +20,22 @@
   {
    "mesh": 0,
    "name": "AED_SpotFire"
+  },
+  {
+   "name": "fx_fire",
+   "translation": [
+    0,
+    0.25,
+    0
+   ]
+  },
+  {
+   "name": "fx_smoke",
+   "translation": [
+    0,
+    0.7,
+    0
+   ]
   }
  ],
  "meshes": [
@@ -101,6 +119,7 @@
  ],
  "materials": [
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_SpotFire_m0",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -112,10 +131,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_SpotFire_m1",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -125,12 +144,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    0.44800000000000006,
+    0.064
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_SpotFire_m2",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -140,12 +164,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    0.108,
+    0.108
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_SpotFire_m3",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -155,12 +184,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    1,
+    0.08
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_SpotFire_m4",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -170,55 +204,59 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    1,
+    0.264
+   ]
   },
   {
+   "alphaMode": "BLEND",
    "name": "AED_SpotFire_m5",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.16,
      0.16,
      0.17,
-     1
+     0.55
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "BLEND",
    "name": "AED_SpotFire_m6",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.32,
      0.32,
      0.34,
-     1
+     0.4
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "BLEND",
    "name": "AED_SpotFire_m7",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.5,
      0.5,
      0.52,
-     1
+     0.28
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   }
  ],
  "buffers": [

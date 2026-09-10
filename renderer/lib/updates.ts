@@ -27,7 +27,6 @@ export type UpdateState = {
   error: string | null;
   channel: UpdateChannel;
   gating: boolean;
-  deferred: boolean;
   lastCheckedAt: number | null;
 };
 
@@ -44,7 +43,6 @@ export const IDLE_UPDATE_STATE: UpdateState = {
   error: null,
   channel: 'latest',
   gating: false,
-  deferred: false,
   lastCheckedAt: null,
 };
 
@@ -52,7 +50,6 @@ export const updates = {
   getState: () => window.ipc?.invoke?.('update:getState') as Promise<UpdateState> | undefined,
   check: () => window.ipc?.invoke?.('update:check') as Promise<UpdateState> | undefined,
   install: () => window.ipc?.invoke?.('update:install') as Promise<UpdateState> | undefined,
-  defer: () => window.ipc?.invoke?.('update:defer') as Promise<UpdateState> | undefined,
   setChannel: (c: UpdateChannel) => window.ipc?.invoke?.('update:setChannel', c) as Promise<UpdateState> | undefined,
   /** Only the splash calls this - it is what holds the app back on launch. */
   launchCheck: () => window.ipc?.invoke?.('update:launchCheck') as Promise<'proceed' | 'installing'> | undefined,

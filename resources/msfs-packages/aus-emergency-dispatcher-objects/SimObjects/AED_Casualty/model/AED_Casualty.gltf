@@ -56,6 +56,7 @@
  ],
  "materials": [
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Casualty_m0",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -67,10 +68,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Casualty_m1",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -82,10 +83,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Casualty_m2",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -97,8 +98,7 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   }
  ],
  "buffers": [

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.0">
+    <LODS>
+        <LOD minSize="0" ModelFile="AED_FireSeat.gltf"/>
+    </LODS>
+    <Behaviors>
+        <Include ModelBehaviorFile="Asobo\Generic\FX.xml"/>
+        <Component ID="AED_fx_fire" Node="fx_fire">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{F3A3155E-FE7D-45A6-ACA4-0139EF0EF24F}</FX_GUID>
+                <FX_CODE>1 0 &gt;</FX_CODE>
+            </UseTemplate>
+        </Component>
+        <Component ID="AED_fx_fire_b" Node="fx_fire_b">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{3A5257C7-5BDB-4A73-8F46-05F4A326C386}</FX_GUID>
+                <FX_CODE>1 0 &gt;</FX_CODE>
+            </UseTemplate>
+        </Component>
+        <Component ID="AED_fx_smoke" Node="fx_smoke">
+            <UseTemplate Name="ASOBO_GT_FX">
+                <FX_GUID>{58B6EEB6-5A9E-4C8A-9AF1-B93072FA7F56}</FX_GUID>
+                <FX_CODE>1 0 &gt;</FX_CODE>
+            </UseTemplate>
+        </Component>
+    </Behaviors>
+</ModelInfo>

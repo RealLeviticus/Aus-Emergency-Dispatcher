@@ -92,6 +92,7 @@
  ],
  "materials": [
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m0",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -103,10 +104,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m1",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -118,10 +119,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m2",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -133,10 +134,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m3",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -148,10 +149,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m4",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -163,10 +164,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m5",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -178,10 +179,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireTruck_m6",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -193,8 +194,7 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   }
  ],
  "buffers": [

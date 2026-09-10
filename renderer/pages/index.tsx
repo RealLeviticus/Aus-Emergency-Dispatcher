@@ -2,13 +2,9 @@ import { useEffect, useState } from 'react';
 import { defaultSplashProfile, splashProfiles, SplashProfileId } from '../config/splash';
 import { formatBytes, formatRate, updates, useUpdateState } from '../lib/updates';
 
-/** How long before "Skip" appears — long enough that a fast update just happens. */
-const SKIP_AFTER_MS = 4000;
-
 export default function ServiceIndex() {
   const [version, setVersion] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<SplashProfileId>(defaultSplashProfile.id);
-  const [canSkip, setCanSkip] = useState(false);
   const update = useUpdateState();
 
   const profile = splashProfiles[profileId];
@@ -43,18 +39,6 @@ export default function ServiceIndex() {
 
   const busy = update.phase === 'available' || update.phase === 'downloading';
 
-  useEffect(() => {
-    if (!busy) return;
-    const id = window.setTimeout(() => setCanSkip(true), SKIP_AFTER_MS);
-    return () => window.clearTimeout(id);
-  }, [busy]);
-
-  // Clicking the splash drops the remaining branding wait. It never skips an
-  // update that is mid-download — that has its own explicit "Skip" control.
-  const skipWait = () => {
-    if (!busy && update.phase !== 'installing') window.ipc?.send?.('splash:skip', null);
-  };
-
   const status =
     update.phase === 'checking'
       ? 'Checking for updates'
@@ -68,9 +52,7 @@ export default function ServiceIndex() {
 
   return (
     <div
-      onClick={skipWait}
-      title="Click to skip"
-      className={`splash-stage splash-stage-${profile.lightPattern} relative flex h-screen w-screen cursor-pointer flex-col items-center justify-center overflow-hidden text-white`}
+      className={`splash-stage splash-stage-${profile.lightPattern} relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden text-white`}
       style={
         {
           '--splash-accent': profile.accent,
@@ -124,17 +106,9 @@ export default function ServiceIndex() {
           <div className="splash-loader mt-3" role="progressbar" aria-label="Loading" />
         )}
 
-        <p className="mt-2 font-mono text-[9px] uppercase tracking-[0.2em] text-white/35">{status}</p>
-
-        {busy && canSkip && (
-          <button
-            type="button"
-            className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.18em] text-white/40 underline underline-offset-2 hover:text-white/70"
-            onClick={() => void updates.defer()}
-          >
-            Skip — install on exit
-          </button>
-        )}
+        {/* Same face as the title and subtitle above — the mono/uppercase
+            treatment is reserved for the organisation kicker and the version. */}
+        <p className="mt-2 text-center text-[11px] text-white/50">{status}</p>
       </div>
 
       <p className="absolute bottom-2.5 right-4 z-10 font-mono text-[10px] tracking-wide text-white/30">

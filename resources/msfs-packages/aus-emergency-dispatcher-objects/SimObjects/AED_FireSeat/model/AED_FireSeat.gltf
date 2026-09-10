@@ -10,7 +10,10 @@
  "scenes": [
   {
    "nodes": [
-    0
+    0,
+    1,
+    2,
+    3
    ]
   }
  ],
@@ -18,6 +21,30 @@
   {
    "mesh": 0,
    "name": "AED_FireSeat"
+  },
+  {
+   "name": "fx_fire",
+   "translation": [
+    0,
+    0.3,
+    -1.6
+   ]
+  },
+  {
+   "name": "fx_fire_b",
+   "translation": [
+    0,
+    0.3,
+    1.6
+   ]
+  },
+  {
+   "name": "fx_smoke",
+   "translation": [
+    0,
+    1,
+    0
+   ]
   }
  ],
  "meshes": [
@@ -95,12 +122,40 @@
      "indices": 23,
      "material": 7,
      "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 24,
+      "NORMAL": 25
+     },
+     "indices": 26,
+     "material": 8,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 27,
+      "NORMAL": 28
+     },
+     "indices": 29,
+     "material": 9,
+     "mode": 4
+    },
+    {
+     "attributes": {
+      "POSITION": 30,
+      "NORMAL": 31
+     },
+     "indices": 32,
+     "material": 10,
+     "mode": 4
     }
    ]
   }
  ],
  "materials": [
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireSeat_m0",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -112,10 +167,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireSeat_m1",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -125,12 +180,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    0.44800000000000006,
+    0.064
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireSeat_m2",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -140,12 +200,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    0.108,
+    0.108
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireSeat_m3",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -155,12 +220,17 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    1,
+    0.08
+   ]
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_FireSeat_m4",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -170,55 +240,104 @@
      1
     ],
     "metallicFactor": 0,
-    "roughnessFactor": 0.85
+    "roughnessFactor": 1
    },
    "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "emissiveFactor": [
+    1,
+    1,
+    0.264
+   ]
   },
   {
+   "alphaMode": "BLEND",
    "name": "AED_FireSeat_m5",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.16,
      0.16,
      0.17,
-     1
+     0.6
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "BLEND",
    "name": "AED_FireSeat_m6",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.16,
+     0.16,
+     0.17,
+     0.5
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true
+  },
+  {
+   "alphaMode": "BLEND",
+   "name": "AED_FireSeat_m7",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.32,
      0.32,
      0.34,
-     1
+     0.42
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
-   "name": "AED_FireSeat_m7",
+   "alphaMode": "BLEND",
+   "name": "AED_FireSeat_m8",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.32,
+     0.32,
+     0.34,
+     0.34
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true
+  },
+  {
+   "alphaMode": "BLEND",
+   "name": "AED_FireSeat_m9",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
      0.5,
      0.5,
      0.52,
-     1
+     0.26
     ],
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
+  },
+  {
+   "alphaMode": "BLEND",
+   "name": "AED_FireSeat_m10",
+   "pbrMetallicRoughness": {
+    "baseColorFactor": [
+     0.5,
+     0.5,
+     0.52,
+     0.18
+    ],
+    "metallicFactor": 0,
+    "roughnessFactor": 0.85
+   },
+   "doubleSided": true
   }
  ],
  "buffers": [
@@ -321,55 +440,109 @@
   {
    "buffer": 0,
    "byteOffset": 8424,
-   "byteLength": 576,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 8712,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
    "byteOffset": 9000,
-   "byteLength": 576,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 9072,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
-   "byteOffset": 9576,
-   "byteLength": 144,
+   "byteOffset": 9360,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 9648,
+   "byteLength": 72,
    "target": 34963
   },
   {
    "buffer": 0,
    "byteOffset": 9720,
-   "byteLength": 576,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 10008,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
    "byteOffset": 10296,
-   "byteLength": 576,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 10368,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
-   "byteOffset": 10872,
-   "byteLength": 144,
+   "byteOffset": 10656,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 10944,
+   "byteLength": 72,
    "target": 34963
   },
   {
    "buffer": 0,
    "byteOffset": 11016,
-   "byteLength": 576,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 11304,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
    "byteOffset": 11592,
-   "byteLength": 576,
+   "byteLength": 72,
+   "target": 34963
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 11664,
+   "byteLength": 288,
    "target": 34962
   },
   {
    "buffer": 0,
-   "byteOffset": 12168,
-   "byteLength": 144,
+   "byteOffset": 11952,
+   "byteLength": 288,
+   "target": 34962
+  },
+  {
+   "buffer": 0,
+   "byteOffset": 12240,
+   "byteLength": 72,
    "target": 34963
   }
  ],
@@ -517,11 +690,39 @@
   {
    "bufferView": 15,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3",
    "min": [
     -1.2000000000000002,
     2.4,
+    -1.7
+   ],
+   "max": [
+    2,
+    4.6,
+    1.7
+   ]
+  },
+  {
+   "bufferView": 16,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 17,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 18,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    -1.0999999999999999,
+    4.4,
     -1.9999999999999998
    ],
    "max": [
@@ -531,25 +732,53 @@
    ]
   },
   {
-   "bufferView": 16,
+   "bufferView": 19,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3"
   },
   {
-   "bufferView": 17,
+   "bufferView": 20,
    "componentType": 5123,
-   "count": 72,
+   "count": 36,
    "type": "SCALAR"
   },
   {
-   "bufferView": 18,
+   "bufferView": 21,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3",
    "min": [
     -0.3999999999999999,
     6.6,
+    -2.3
+   ],
+   "max": [
+    5.6,
+    9.2,
+    3.7
+   ]
+  },
+  {
+   "bufferView": 22,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 23,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 24,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    0.8999999999999995,
+    9,
     -2.5
    ],
    "max": [
@@ -559,26 +788,54 @@
    ]
   },
   {
-   "bufferView": 19,
+   "bufferView": 25,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3"
   },
   {
-   "bufferView": 20,
+   "bufferView": 26,
    "componentType": 5123,
-   "count": 72,
+   "count": 36,
    "type": "SCALAR"
   },
   {
-   "bufferView": 21,
+   "bufferView": 27,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3",
    "min": [
     2.9000000000000004,
     11.6,
     -2.6
+   ],
+   "max": [
+    11.5,
+    14.6,
+    5.800000000000001
+   ]
+  },
+  {
+   "bufferView": 28,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3"
+  },
+  {
+   "bufferView": 29,
+   "componentType": 5123,
+   "count": 36,
+   "type": "SCALAR"
+  },
+  {
+   "bufferView": 30,
+   "componentType": 5126,
+   "count": 24,
+   "type": "VEC3",
+   "min": [
+    5.7,
+    14.4,
+    -2.5999999999999996
    ],
    "max": [
     15.3,
@@ -587,15 +844,15 @@
    ]
   },
   {
-   "bufferView": 22,
+   "bufferView": 31,
    "componentType": 5126,
-   "count": 48,
+   "count": 24,
    "type": "VEC3"
   },
   {
-   "bufferView": 23,
+   "bufferView": 32,
    "componentType": 5123,
-   "count": 72,
+   "count": 36,
    "type": "SCALAR"
   }
  ]

@@ -22,6 +22,7 @@ import { AccountBadge } from './AccountBadge';
 import { ScenePacksDialog } from './ScenePacksDialog';
 import { UpdateBanner, UpdateDialog } from './UpdateDialog';
 import { OptionsDialog } from './OptionsDialog';
+import { useUpdateState } from '../lib/updates';
 const MapView = dynamic(() => import('./MapView'), {
   ssr: false,
   loading: () => <div className="flex h-full items-center justify-center text-[#404040]">Loading map…</div>,
@@ -221,6 +222,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const [scenePacksOpen, setScenePacksOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const updateState = useUpdateState();
   const [objPreset, setObjPreset] = useState('windsock');
   const [presets, setPresets] = useState<{ id: string; label: string }[]>([]);
   const [sceneCatalog, setSceneCatalog] = useState<{ id: string; label: string }[]>([]);
@@ -704,6 +706,28 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
     setSimNote(res ? `Removed ${res.removed ?? 0} injected object(s).` : 'SimConnect bridge unavailable.');
   }, []);
 
+  // The startup auto-install may have refreshed the Community package (new
+  // models or fire/smoke effects arriving with an app update). MSFS only reads
+  // Community at startup, so the operator has to know to restart it.
+  useEffect(() => {
+    let off: (() => void) | undefined;
+    Promise.resolve(window.ipc?.invoke?.('packages:note'))
+      .then((n) => typeof n === 'string' && n && setSimNote(n))
+      .catch(() => undefined);
+    try {
+      off = window.ipc?.on?.('packages:note', (n) => typeof n === 'string' && setSimNote(n));
+    } catch {
+      /* not electron */
+    }
+    return () => {
+      try {
+        off?.();
+      } catch {
+        /* ignore */
+      }
+    };
+  }, []);
+
   // Keyboard on the board: this is a console people drive one-handed while
   // flying, so the common moves shouldn't need the mouse. Never swallow keys
   // while the user is typing in a field or a dialog is up.
@@ -745,6 +769,18 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const detailJob = pool.find((j) => j.id === detailJobId) ?? null;
   const detailCall = detailJob ? jobToCall(detailJob) : null;
   const canClaimDetail = detailJob?.status === 'available' && canAct;
+  // What turns the status bar red. Deliberately narrow:
+  //  - "sim not running" is NOT a fault; browsing the board off duty is normal
+  //    and a permanently red bar would mean nothing.
+  //  - a SimConnect error only counts while the link is actually up; the reason
+  //    stored on a clean disconnect is not an operator problem.
+  const faultText =
+    updateState.phase === 'error'
+      ? `Update check failed — ${updateState.error ?? 'unknown error'}`
+      : simStatus.connected && simStatus.lastError
+        ? simStatus.lastError
+        : null;
+
   const statusText = active
     ? `On task — ${active.call.kind} · ${PHASE_LABEL[active.phase]}`
     : myJob
@@ -973,46 +1009,50 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
         ) : (
           <>
             <OnWatch log={log} simStatus={simStatus} hasFix={hasFix} base={base} myJob={myJob} />
-            {/* The board stays readable no matter what the sim is doing; the
-                gate above it explains what is still needed to act on a job. */}
-            {!canAct && (
-              <DutyGate
-                reason={gateReason}
-                hasFix={hasFix}
-                connected={simStatus.connected}
-                options={baseOptions}
-                value={baseSel}
-                onChange={setBaseSel}
-                onConfirm={confirmBase}
-                fix={fix}
+            {/* The work area is a row, so the gate and the board share one
+                column — otherwise the gate becomes a column of its own. */}
+            <div className="flex min-w-0 flex-1 flex-col">
+              {!canAct && (
+                <DutyGate
+                  reason={gateReason}
+                  hasFix={hasFix}
+                  connected={simStatus.connected}
+                  options={baseOptions}
+                  value={baseSel}
+                  onChange={setBaseSel}
+                  onConfirm={confirmBase}
+                  fix={fix}
+                />
+              )}
+              <JobBoard
+                available={available}
+                myJob={myJob}
+                othersActive={othersActive}
+                aircraftClass={hasFix ? aircraftClass : null}
+                estRangeNm={fix?.estRangeNm ?? 0}
+                base={base}
+                boardTitle={isRaafv ? 'RAAFv Tasking' : 'Job Board'}
+                selectedId={selectedJobId}
+                onSelect={setSelectedJobId}
+                onOpen={setDetailJobId}
+                onClaim={claim}
+                onJoin={joinJob}
+                onRelease={releaseJob}
+                onStart={startJob}
+                canStart={canAct}
+                canAct={canAct}
+                gateReason={gateReason}
               />
-            )}
-            <JobBoard
-              available={available}
-              myJob={myJob}
-              othersActive={othersActive}
-              aircraftClass={hasFix ? aircraftClass : null}
-              estRangeNm={fix?.estRangeNm ?? 0}
-              base={base}
-              boardTitle={isRaafv ? 'RAAFv Tasking' : 'Job Board'}
-              selectedId={selectedJobId}
-              onSelect={setSelectedJobId}
-              onOpen={setDetailJobId}
-              onClaim={claim}
-              onJoin={joinJob}
-              onRelease={releaseJob}
-              onStart={startJob}
-              canStart={canAct}
-              canAct={canAct}
-              gateReason={gateReason}
-            />
+            </div>
           </>
         )}
       </div>
 
       {/* Status bar */}
-      <div className="win-statusbar">
-        <span className="grow">{detailJob ? `Viewing ${detailJob.kind}` : statusText}</span>
+      <div className={`win-statusbar ${faultText ? 'is-error' : ''}`}>
+        <span className="grow" title={faultText ?? undefined}>
+          {faultText ?? (detailJob ? `Viewing ${detailJob.kind}` : statusText)}
+        </span>
         <span className="w-[130px]">{available.length} available</span>
         <span className="flex w-[150px] items-center justify-center">
           <AccountBadge account={account} />
@@ -1447,7 +1487,7 @@ function JobBoard({
         </button>
         <span className="ml-1 truncate text-[#404040]">
           {!canAct
-            ? `Viewing only — ${(gateReason ?? 'not on duty').toLowerCase()}. Double-click any job for the full brief.`
+            ? `Viewing only — ${gateReason ?? 'not on duty'}. Double-click any job for the full brief.`
             : selected
               ? `Selected: ${selected.kind}`
               : 'Select a job. Double-click for the full brief.'}
@@ -1526,7 +1566,7 @@ function CallDetail({
             <span className="text-[#404040]">{call.place}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-3">
+          <div className="grid grid-cols-2 items-start gap-x-3">
             <GroupBox title="Summary">
               <KeyRow label="Call ID" value={<span className="font-mono">{call.id}</span>} wide={104} />
               <KeyRow label="Category" value={call.category} wide={104} />
@@ -1549,7 +1589,7 @@ function CallDetail({
               {/* Where the job actually is. The brief used to be text-only, which
                   is fine when you have already launched but not when you are
                   choosing between jobs across the country. */}
-              <div className="win-sunken mt-1.5 h-[200px] overflow-hidden">
+              <div className="win-sunken mt-1.5 h-[260px] overflow-hidden">
                 <MapView
                   aircraft={aircraft}
                   trail={[]}
@@ -1571,7 +1611,7 @@ function CallDetail({
             </div>
           </GroupBox>
 
-          <div className="grid grid-cols-2 gap-x-3">
+          <div className="grid grid-cols-2 items-start gap-x-3">
             <GroupBox title="Response">
               <KeyRow label="Nearest asset" value={call.nearestAsset} wide={104} />
               <div className="mt-1 text-[#404040]">Units:</div>
@@ -1826,7 +1866,7 @@ function BriefingTab({ call }: { call: Call }) {
         </div>
       </GroupBox>
 
-      <div className="grid grid-cols-2 gap-x-3">
+      <div className="grid grid-cols-2 items-start gap-x-3">
         <GroupBox title="Risk">
           <KeyRow label="Hazards" value={call.hazards} wide={72} />
           <KeyRow label="Persons" value={call.persons} wide={72} />
@@ -1838,7 +1878,7 @@ function BriefingTab({ call }: { call: Call }) {
         </GroupBox>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-3">
+      <div className="grid grid-cols-2 items-start gap-x-3">
         <GroupBox title="Response">
           <KeyRow label="Nearest" value={call.nearestAsset} wide={72} />
           <div className="mt-1 text-[#404040]">Units:</div>

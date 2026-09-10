@@ -8,6 +8,15 @@
         "value": "inter",
         "createdAt": "2026-09-07T03:35:43.388Z",
         "reason": "user confirmed Y2K/Windows-9x UI on a system-font stack (Tahoma/MS Sans Serif per y2k.md); index.css:20 Inter is legacy hub-template base CSS now affecting only the non-Y2K splash"
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "renderer/components/DispatchConsole.tsx"
+        ],
+        "createdAt": "2026-09-10T10:16:03.533Z",
+        "reason": "Matches this repo's established notice-strip styling: identical classes (win-sunken mb-2 border-l-4 border-[#a05000] px-2 py-[6px]) pre-exist at renderer/components/ScenePacksDialog.tsx:71 for the same advisory-notice role, predating this work. Deliberate consistency inside a Win9x pastiche, not an AI tell."
       }
     ]
   }

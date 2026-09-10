@@ -83,6 +83,7 @@
  ],
  "materials": [
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m0",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -94,10 +95,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m1",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -109,10 +110,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m2",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -124,10 +125,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m3",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -139,10 +140,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m4",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -154,10 +155,10 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   },
   {
+   "alphaMode": "OPAQUE",
    "name": "AED_Boat_m5",
    "pbrMetallicRoughness": {
     "baseColorFactor": [
@@ -169,8 +170,7 @@
     "metallicFactor": 0,
     "roughnessFactor": 0.85
    },
-   "doubleSided": true,
-   "alphaMode": "OPAQUE"
+   "doubleSided": true
   }
  ],
  "buffers": [
