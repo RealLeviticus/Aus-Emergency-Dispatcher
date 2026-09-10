@@ -44,8 +44,7 @@ function resolveTarget() {
   const dir = process.env.AED_PUBLISH_PATH;
   if (!host || !dir) {
     fail(
-      'set AED_PUBLISH_TARGET (user@host:/path), or AED_PUBLISH_HOST and AED_PUBLISH_PATH.\n' +
-        '  See RELEASING.md.',
+      'set AED_PUBLISH_TARGET (user@host:/path), or AED_PUBLISH_HOST and AED_PUBLISH_PATH.\n' + '  See RELEASING.md.',
     );
   }
   const user = process.env.AED_PUBLISH_USER;
@@ -122,6 +121,33 @@ for (const f of ordered) {
   if (res.error) fail(`could not run scp (${res.error.message}). Is the OpenSSH client installed?`);
   if (res.status !== 0) fail(`scp exited ${res.status} on ${f}. Nothing after this point was uploaded.`);
   console.log('ok');
+}
+
+// --- point /install at this release ------------------------------------------
+// The Caddy /install route serves `latest.exe`; repoint that symlink so the
+// download link always hands back what we just published. A symlink rather than
+// a copy keeps one 80 MB file per release instead of two.
+{
+  const [host, dir] = (() => {
+    const i = target.lastIndexOf(':');
+    return [target.slice(0, i), target.slice(i + 1)];
+  })();
+  const exe = installers[0];
+  process.stdout.write('  repointing /install … ');
+  const res = spawnSync(
+    'ssh',
+    [...sshOpts, host, `ln -sfn ${JSON.stringify(exe)} ${JSON.stringify(`${dir}/latest.exe`)}`],
+    {
+      stdio: ['ignore', 'inherit', 'inherit'],
+    },
+  );
+  if (res.error || res.status !== 0) {
+    console.log('failed');
+    console.warn('  /install still points at the previous release - fix by hand:');
+    console.warn(`    ssh ${host} ln -sfn "${exe}" "${dir}/latest.exe"`);
+  } else {
+    console.log('ok');
+  }
 }
 
 // --- verify ------------------------------------------------------------------

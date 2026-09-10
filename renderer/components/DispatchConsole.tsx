@@ -1193,7 +1193,9 @@ function DutyGate({
   const [manual, setManual] = useState('');
   return (
     <div className="win-sunken mb-2 border-l-4 border-[#a05000] px-2 py-[6px]">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      {/* baseline, not centre: the heading and the note are different sizes, and
+          centring their boxes leaves the two runs of text visibly out of line. */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <b>{reason ?? 'Not on duty'}</b>
         <span className="text-[11px] text-[#404040]">
           {!connected
