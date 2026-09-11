@@ -217,6 +217,17 @@ export type InjectedObject = {
   holdUntilNm?: number;
   /** true while it is still holding (waiting for the interceptor) */
   holding?: boolean;
+  /**
+   * A GROUND or surface contact — the car in a police pursuit, a convoy, a
+   * vessel of interest. It flies the same route machinery as an air contact
+   * but is pinned to terrain, turns like a vehicle rather than an aircraft,
+   * and captures waypoints at road scale instead of 1.5 NM.
+   */
+  isGround?: boolean;
+  /** a fleeing vehicle stops dead at the end of its route (the bail-out) */
+  stopAtEnd?: boolean;
+  /** true once it has reached the end of the route and stopped */
+  stopped?: boolean;
   /** display label, e.g. "Fast mover, FL350" */
   label?: string;
   /** current attitude we write for smooth rendering */
@@ -990,6 +1001,66 @@ export class SimBridge extends EventEmitter {
     return rec;
   }
 
+  /**
+   * Inject a moving GROUND or surface contact — the fleeing car in a police
+   * pursuit, a monitored convoy, a vessel of interest.
+   *
+   * This reuses the air-contact tick (MSFS ignores an AI waypoint list for an
+   * object we spawn and then drive ourselves), with three differences that
+   * matter: it is pinned to terrain rather than an altitude, it captures
+   * waypoints at road scale — the air path's 1.5 NM minimum would skip every
+   * turn on a suburban street — and a fleeing vehicle STOPS at the end of its
+   * route so the crew can watch the offenders decamp.
+   */
+  injectGroundContact(spec: {
+    remoteId?: string;
+    titles: string[];
+    route: { lat: number; lon: number; speedKt: number }[];
+    /** hold (parked) at route[0] until the aircraft is within this range */
+    holdUntilNm?: number;
+    /** stop dead at the end of the route rather than carrying on */
+    stopAtEnd?: boolean;
+    label?: string;
+    sceneKey?: string;
+  }): InjectedObject {
+    if (!this.handle) throw new Error('Not connected to a simulator.');
+    if (!spec.route.length) throw new Error('A ground contact needs a route.');
+    const chain = [...spec.titles].filter(Boolean);
+    const wp0 = spec.route[0]!;
+    const aim = spec.route[1] ?? wp0;
+    const headingDeg = bearingTo(wp0.lat, wp0.lon, aim.lat, aim.lon);
+    const groundFt = this.groundElevationFt(wp0.lat, wp0.lon);
+    // Deliberately NOT isAircraft: a ground contact's title chain mixes the
+    // packs' aircraft-SimObject props ("30West A45") with base-game simulated
+    // objects ("Microsoft_Car_EUR_03"). trySpawn picks the right creation call
+    // per title; forcing the aircraft path would make every base car fail.
+    const rec = this.spawn(
+      spec.remoteId ? 'remote' : 'local',
+      chain,
+      { lat: wp0.lat, lon: wp0.lon, altitudeFt: groundFt, headingDeg, onGround: true },
+      { altFt: groundFt, speedKt: 0 },
+    );
+    if (spec.remoteId) rec.remoteId = spec.remoteId;
+    rec.label = spec.label;
+    rec.sceneKey = spec.sceneKey;
+    rec.isGround = true;
+    rec.stopAtEnd = spec.stopAtEnd ?? true;
+    rec.bank = 0;
+    rec.pitch = 0;
+    // The tick shares one route shape with air contacts; ground waypoints carry
+    // no altitude of their own because terrain decides it every tick.
+    rec.route = spec.route.map((w) => ({ lat: w.lat, lon: w.lon, altFt: 0, speedKt: w.speedKt }));
+    rec.routeIdx = 0;
+    rec.routeLoop = false;
+    if (!spec.remoteId && spec.holdUntilNm && spec.holdUntilNm > 0) {
+      rec.holdUntilNm = spec.holdUntilNm;
+      rec.holding = true;
+    }
+    this.ensureContactTick();
+    this.patch({ injected: [...this.injected.values()] });
+    return rec;
+  }
+
   private contactTimer: NodeJS.Timeout | null = null;
   private static readonly CONTACT_DT = 0.25; // s — 4 Hz
   private lastContactPatch = 0;
@@ -1014,7 +1085,7 @@ export class SimBridge extends EventEmitter {
     let anyMoving = false;
 
     for (const rec of this.injected.values()) {
-      if (!rec.isAircraft || rec.objectId == null) continue;
+      if ((!rec.isAircraft && !rec.isGround) || rec.objectId == null) continue;
 
       // Peer-mirrored contact: dead-reckon between the ~1 Hz corrections in moveContact().
       if (rec.source === 'remote') {
@@ -1028,12 +1099,18 @@ export class SimBridge extends EventEmitter {
       if (!rec.route && !rec.speedKt) continue;
       anyMoving = true;
 
-      // Hold near the spawn point (gentle right orbit) until the interceptor closes.
+      // Hold near the spawn point until the aircraft closes. An air contact
+      // orbits; a vehicle simply sits there with the engine running.
       if (rec.holding) {
         const inRange =
           me && Math.abs(me.lat) > 0.02 && roughRangeNm(me.lat, me.lon, rec.lat, rec.lon) <= (rec.holdUntilNm ?? 80);
         if (inRange) rec.holding = false;
-        else {
+        else if (rec.isGround) {
+          rec.speedKt = 0;
+          rec.altFt = this.groundElevationFt(rec.lat, rec.lon);
+          this.emitContact(rec);
+          continue;
+        } else {
           rec.headingDeg = (rec.headingDeg + 3 * dt * 3) % 360; // ~9°/s orbit
           rec.speedKt = rampTo(rec.speedKt ?? 200, Math.min(220, (rec.route?.[0]?.speedKt ?? 200) * 0.7), 8);
           rec.bank = 18;
@@ -1048,13 +1125,37 @@ export class SimBridge extends EventEmitter {
       if (rec.route && rec.routeIdx != null) {
         if (rec.routeIdx >= rec.route.length) {
           if (rec.routeLoop) rec.routeIdx = 0;
-          else {
+          else if (rec.isGround && rec.stopAtEnd) {
+            this.stopGround(rec); // the bail-out
+            continue;
+          } else {
             rec.route = undefined; // route finished — fly on straight
             rec.routeIdx = undefined;
           }
         }
         const wp = rec.route?.[rec.routeIdx ?? 0];
-        if (wp) {
+        if (wp && rec.isGround) {
+          // A vehicle turns far harder than an aircraft and its waypoints are
+          // metres apart, not miles: the air path's 1.5 NM capture radius would
+          // skip every corner of a road and cut the route into a straight line.
+          const want = bearingTo(rec.lat, rec.lon, wp.lat, wp.lon);
+          rec.headingDeg = turnToward(rec.headingDeg, want, 45 * dt);
+          rec.bank = 0;
+          rec.pitch = 0;
+          rec.altFt = this.groundElevationFt(rec.lat, rec.lon);
+          rec.speedKt = rampTo(rec.speedKt ?? 0, wp.speedKt, 12 * dt); // ~6 kt/s
+          const near = Math.max(0.022, (rec.speedKt ?? 40) / 1800); // ~40 m, more at speed
+          if (roughRangeNm(rec.lat, rec.lon, wp.lat, wp.lon) <= near) rec.routeIdx = (rec.routeIdx ?? 0) + 1;
+          // The route's last waypoint asks for a dead stop, and the vehicle
+          // reaches zero well before it gets inside the capture radius — so it
+          // would never tick past the end and never be marked stopped. Once it
+          // is stationary on the final leg, the run is over.
+          const onLastLeg = (rec.routeIdx ?? 0) >= rec.route.length - 1;
+          if (rec.stopAtEnd && onLastLeg && (rec.speedKt ?? 0) < 1.5) {
+            this.stopGround(rec);
+            continue;
+          }
+        } else if (wp) {
           const want = bearingTo(rec.lat, rec.lon, wp.lat, wp.lon);
           const fast = (rec.speedKt ?? wp.speedKt) > 250;
           const maxTurn = (fast ? 2.5 : 6) * dt; // deg this tick
@@ -1091,6 +1192,21 @@ export class SimBridge extends EventEmitter {
       clearInterval(this.contactTimer);
       this.contactTimer = null;
     }
+  }
+
+  /**
+   * A fleeing vehicle has finished its run. It stays where it is from here so
+   * the crew can watch the offenders decamp, and the console drops the cordon
+   * scene on this spot.
+   */
+  private stopGround(rec: InjectedObject): void {
+    rec.route = undefined;
+    rec.routeIdx = undefined;
+    rec.speedKt = 0;
+    rec.stopped = true;
+    rec.altFt = this.groundElevationFt(rec.lat, rec.lon);
+    this.emitContact(rec);
+    this.patch({ injected: [...this.injected.values()] });
   }
 
   private emitContact(rec: InjectedObject): void {

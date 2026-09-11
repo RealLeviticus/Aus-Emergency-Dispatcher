@@ -31,16 +31,40 @@ pre,
    Scoped under .y2k so the dark splash keeps its own look.
    =========================================================================== */
 
-.y2k {
+/* The palette lives on :root, NOT on .y2k. Modal dialogs are rendered as
+   siblings of the desktop (see home.tsx) rather than inside it, so a token
+   scoped to .y2k resolved to nothing there: `background: var(--w-face)` fell
+   back to transparent, every bevel border collapsed to currentColor, and the
+   text inherited the dark splash theme's light grey on a grey window. That is
+   what made the first-run dialogs unreadable. */
+:root {
+    --w-face: #d4d0c8;
+    --w-gray: #c0c0c0;
+    --w-hi: #ffffff;
+    --w-lo: #808080;
+    --w-lolo: #404040;
+    --w-navy: #000080;
+    --w-teal: #008080;
+    --w-text: #000000;
+}
+
+/* `.win-chrome` is the same typography and colour as the desktop, without the
+   teal fill — it is what a dialog opts into when it renders outside .y2k. */
+.y2k,
+.win-chrome {
     font-family: Tahoma, "Segoe UI", "MS Sans Serif", Geneva, sans-serif;
     font-size: 12px;
     line-height: 1.35;
     -webkit-font-smoothing: none;
     color: var(--w-text);
+}
+
+.y2k {
     background: var(--w-teal);
 }
 
-.y2k * {
+.y2k *,
+.win-chrome * {
     box-sizing: border-box;
     cursor: default;
 }
@@ -51,25 +75,20 @@ pre,
 .y2k textarea,
 .y2k table,
 .y2k th,
-.y2k td {
+.y2k td,
+.win-chrome button,
+.win-chrome input,
+.win-chrome select,
+.win-chrome textarea,
+.win-chrome table,
+.win-chrome th,
+.win-chrome td {
     font: inherit;
     color: inherit;
 }
 
-.y2k {
-    --w-face: #d4d0c8;
-    --w-gray: #c0c0c0;
-    --w-hi: #ffffff;
-    --w-lo: #808080;
-    --w-lolo: #404040;
-    --w-navy: #000080;
-    --w-teal: #008080;
-    --w-text: #000000;
-    color: var(--w-text);
-    background: var(--w-teal);
-}
-
-.y2k ::selection {
+.y2k ::selection,
+.win-chrome ::selection {
     background: var(--w-navy);
     color: #fff;
 }
@@ -100,6 +119,59 @@ pre,
     border: 2px solid;
     border-color: var(--w-hi) var(--w-lolo) var(--w-lolo) var(--w-hi);
     box-shadow: inset -1px -1px 0 var(--w-lo), inset 1px 1px 0 var(--w-face);
+}
+
+/* Modal shell ------------------------------------------------------------
+   Every dialog used to hand-roll `fixed inset-0 flex items-center justify-center`
+   with a fixed pixel width and no max-height. On a short or narrow console that
+   put the title bar and the footer buttons off-screen with nothing to scroll,
+   so a first-run dialog could not be dismissed. The window is capped to the
+   viewport here and the dialog body is the only thing that scrolls. */
+.win-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.45);
+    overflow: auto;
+}
+
+.win-modal > .win-window {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100vh - 32px);
+    min-height: 0;
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* The scrolling middle of a dialog. */
+.win-modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px;
+}
+
+/* The button strip along the bottom — raised edge, same as a real Win9x dialog. */
+.win-modal-footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-top: 1px solid var(--w-lo);
+    box-shadow: 0 1px 0 var(--w-hi) inset;
+}
+
+/* Long absolute paths and URLs must wrap rather than run under the frame. */
+.win-path {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .win-titlebar {
@@ -270,24 +342,28 @@ pre,
 }
 
 /* Scrollbars ------------------------------------------------------------- */
-.y2k *::-webkit-scrollbar {
+.y2k *::-webkit-scrollbar,
+.win-chrome *::-webkit-scrollbar {
     width: 16px;
     height: 16px;
 }
 
-.y2k *::-webkit-scrollbar-track {
+.y2k *::-webkit-scrollbar-track,
+.win-chrome *::-webkit-scrollbar-track {
     background: #dfdfdf;
     box-shadow: inset 0 0 0 1px #fff;
 }
 
-.y2k *::-webkit-scrollbar-thumb {
+.y2k *::-webkit-scrollbar-thumb,
+.win-chrome *::-webkit-scrollbar-thumb {
     background: var(--w-face);
     border: 2px solid;
     border-color: var(--w-hi) var(--w-lo) var(--w-lo) var(--w-hi);
     border-radius: 0;
 }
 
-.y2k *::-webkit-scrollbar-button {
+.y2k *::-webkit-scrollbar-button,
+.win-chrome *::-webkit-scrollbar-button {
     display: block;
     height: 16px;
     background: var(--w-face);

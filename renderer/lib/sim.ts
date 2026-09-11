@@ -46,6 +46,10 @@ export type InjectedObject = {
   speedKt?: number;
   holding?: boolean;
   label?: string;
+  /** a moving ground/surface contact — the vehicle in a police tasking */
+  isGround?: boolean;
+  /** true once a fleeing vehicle has reached the end of its run and stopped */
+  stopped?: boolean;
 };
 
 export type SimStatus = {
@@ -208,6 +212,16 @@ export const sim = {
     holdUntilNm?: number;
     label?: string;
   }) => window.ipc?.invoke?.('sim:injectAirContact', spec) as Promise<{ ok: boolean; error?: string } | undefined>,
+  /** Spawn and drive a ground/surface contact — the vehicle in a police tasking. */
+  injectGroundContact: (spec: {
+    vehicle?: 'car' | 'bike' | 'truck' | 'boat';
+    route: { lat: number; lon: number; speedKt: number }[];
+    behaviour?: 'flee' | 'cruise';
+    holdUntilNm?: number;
+    convoy?: number;
+    label?: string;
+    sceneKey?: string;
+  }) => window.ipc?.invoke?.('sim:injectGroundContact', spec) as Promise<{ ok: boolean; error?: string } | undefined>,
   fsltlStatus: () =>
     window.ipc?.invoke?.('fsltl:status') as Promise<
       { installed: boolean; trafficBase: boolean; packages: string[]; titles: string[] } | undefined

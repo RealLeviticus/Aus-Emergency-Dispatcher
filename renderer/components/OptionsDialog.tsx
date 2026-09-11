@@ -3,6 +3,7 @@ import { isMuted, setMuted } from '../lib/audio';
 import { sim } from '../lib/sim';
 import { account, usePilot } from '../lib/account';
 import { CrewCentreDialog } from './CrewCentreDialog';
+import { WinDialog } from './WinDialog';
 import { updates, useUpdateState } from '../lib/updates';
 import type { SplashProfileId } from '../config/splash';
 
@@ -52,164 +53,151 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40" onMouseDown={onClose}>
-      <div
-        className="win-window flex max-h-[88vh] w-[560px] flex-col"
-        onMouseDown={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Options"
-      >
-        <div className="win-titlebar flex items-center justify-between px-2 py-[2px]">
-          <span className="font-bold">Options</span>
-          <button type="button" className="win-titlebar-btn" onClick={onClose} aria-label="Close">
-            ×
-          </button>
-        </div>
+    <WinDialog
+      title="Options"
+      width={560}
+      onClose={onClose}
+      footer={
+        <button type="button" className="win-btn ml-auto" onClick={onClose}>
+          Close
+        </button>
+      }
+    >
+      <>
+        <fieldset className="win-group mb-2 p-2">
+          <legend className="px-1">Console</legend>
+          <label className="flex items-center gap-2 py-[2px]">
+            <input type="checkbox" checked={muted} onChange={toggleMute} />
+            Mute alert sounds
+            <span className="text-[11px] text-[#606060]">— alerts only sound once you&rsquo;re on duty</span>
+          </label>
+          <label className="flex items-center gap-2 py-[2px]">
+            <input type="checkbox" checked={onTop} onChange={toggleOnTop} />
+            Keep the console on top
+            <span className="text-[11px] text-[#606060]">— stays above the simulator window</span>
+          </label>
+          <label className="flex items-center gap-2 py-[2px]">
+            <input
+              type="checkbox"
+              checked={packPrompt}
+              onChange={(e) => {
+                setPackPrompt(e.target.checked);
+                void sim.addonSuppressPrompt(!e.target.checked);
+              }}
+            />
+            Show the scene-pack setup prompt at startup
+          </label>
+        </fieldset>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-3 text-[12px] leading-snug">
-          <fieldset className="win-group mb-2 p-2">
-            <legend className="px-1">Console</legend>
-            <label className="flex items-center gap-2 py-[2px]">
-              <input type="checkbox" checked={muted} onChange={toggleMute} />
-              Mute alert sounds
-              <span className="text-[11px] text-[#606060]">— alerts only sound once you&rsquo;re on duty</span>
-            </label>
-            <label className="flex items-center gap-2 py-[2px]">
-              <input type="checkbox" checked={onTop} onChange={toggleOnTop} />
-              Keep the console on top
-              <span className="text-[11px] text-[#606060]">— stays above the simulator window</span>
-            </label>
-            <label className="flex items-center gap-2 py-[2px]">
+        <fieldset className="win-group mb-2 p-2">
+          <legend className="px-1">Startup screen</legend>
+          <div className="flex gap-4">
+            {(
+              [
+                ['emergency', 'Emergency services'],
+                ['military', 'RAAFv / military'],
+              ] as [SplashProfileId, string][]
+            ).map(([id, label]) => (
+              <label key={id} className="flex items-center gap-1.5">
+                <input type="radio" name="splash-profile" checked={profile === id} onChange={() => chooseProfile(id)} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-[11px] text-[#606060]">Takes effect the next time the app starts.</p>
+        </fieldset>
+
+        <fieldset className="win-group mb-2 p-2">
+          <legend className="px-1">Updates</legend>
+          <div className="flex flex-wrap items-center gap-2">
+            <span>
+              Installed <b>{update.currentVersion || '—'}</b>
+            </span>
+            <label className="ml-2 flex items-center gap-1.5">
               <input
                 type="checkbox"
-                checked={packPrompt}
-                onChange={(e) => {
-                  setPackPrompt(e.target.checked);
-                  void sim.addonSuppressPrompt(!e.target.checked);
-                }}
+                checked={update.channel === 'beta'}
+                onChange={(e) => void updates.setChannel(e.target.checked ? 'beta' : 'latest')}
               />
-              Show the scene-pack setup prompt at startup
+              Get beta builds
             </label>
-          </fieldset>
-
-          <fieldset className="win-group mb-2 p-2">
-            <legend className="px-1">Startup screen</legend>
-            <div className="flex gap-4">
-              {(
-                [
-                  ['emergency', 'Emergency services'],
-                  ['military', 'RAAFv / military'],
-                ] as [SplashProfileId, string][]
-              ).map(([id, label]) => (
-                <label key={id} className="flex items-center gap-1.5">
-                  <input
-                    type="radio"
-                    name="splash-profile"
-                    checked={profile === id}
-                    onChange={() => chooseProfile(id)}
-                  />
-                  {label}
-                </label>
-              ))}
+            <button
+              type="button"
+              className="win-btn ml-auto"
+              disabled={update.phase === 'checking' || update.phase === 'downloading'}
+              onClick={() => void updates.check()}
+            >
+              Check now
+            </button>
+          </div>
+          {update.phase === 'downloaded' && (
+            <div className="mt-1.5 flex items-center gap-2">
+              <span className="text-[#006000]">Version {update.newVersion} is ready.</span>
+              <button type="button" className="win-btn" onClick={() => void updates.install()}>
+                Restart &amp; install
+              </button>
             </div>
-            <p className="mt-1 text-[11px] text-[#606060]">Takes effect the next time the app starts.</p>
-          </fieldset>
+          )}
+        </fieldset>
 
-          <fieldset className="win-group mb-2 p-2">
-            <legend className="px-1">Updates</legend>
+        <fieldset className="win-group mb-2 p-2">
+          <legend className="px-1">RAAFv access</legend>
+          {pilot ? (
             <div className="flex flex-wrap items-center gap-2">
               <span>
-                Installed <b>{update.currentVersion || '—'}</b>
+                Signed in as <b>{pilot.username}</b>
+                {pilot.ident ? ` (${pilot.ident})` : ''}
+                {pilot.rank ? ` — ${pilot.rank}` : ''}
               </span>
-              <label className="ml-2 flex items-center gap-1.5">
-                <input
-                  type="checkbox"
-                  checked={update.channel === 'beta'}
-                  onChange={(e) => void updates.setChannel(e.target.checked ? 'beta' : 'latest')}
-                />
-                Get beta builds
-              </label>
               <button
                 type="button"
-                className="win-btn ml-auto px-3 py-0"
-                disabled={update.phase === 'checking' || update.phase === 'downloading'}
-                onClick={() => void updates.check()}
+                className="win-btn ml-auto"
+                onClick={async () => {
+                  await account.unlinkPhpvms();
+                  await refreshPilot();
+                }}
               >
-                Check now
+                Sign out
               </button>
             </div>
-            {update.phase === 'downloaded' && (
-              <div className="mt-1.5 flex items-center gap-2">
-                <span className="text-[#006000]">Version {update.newVersion} is ready.</span>
-                <button type="button" className="win-btn px-3 py-0" onClick={() => void updates.install()}>
-                  Restart &amp; install
-                </button>
-              </div>
-            )}
-          </fieldset>
-
-          <fieldset className="win-group mb-2 p-2">
-            <legend className="px-1">RAAFv access</legend>
-            {pilot ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span>
-                  Signed in as <b>{pilot.username}</b>
-                  {pilot.ident ? ` (${pilot.ident})` : ''}
-                  {pilot.rank ? ` — ${pilot.rank}` : ''}
-                </span>
-                <button
-                  type="button"
-                  className="win-btn ml-auto px-3 py-0"
-                  onClick={async () => {
-                    await account.unlinkPhpvms();
-                    await refreshPilot();
-                  }}
-                >
-                  Sign out
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[#606060]">
-                  Not signed in — RAAFv Tasking stays locked.
-                </span>
-                <button type="button" className="win-btn ml-auto px-3 py-0" onClick={() => setCrewDialog(true)}>
-                  Sign in…
-                </button>
-              </div>
-            )}
-          </fieldset>
-
-          <fieldset className="win-group mb-2 p-2">
-            <legend className="px-1">Files</legend>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="win-btn px-3 py-0"
-                onClick={() => void window.ipc?.invoke?.('app:openDataFolder')}
-                title="Routes, credits, scene-title overrides and the AddonPacks drop folder"
-              >
-                Open data folder
-              </button>
-              <button
-                type="button"
-                className="win-btn px-3 py-0"
-                onClick={() => void window.ipc?.invoke?.('app:openUserData')}
-                title="Settings, sign-in and logs"
-              >
-                Open app data
-              </button>
-              <button
-                type="button"
-                className="win-btn px-3 py-0"
-                onClick={() => void window.ipc?.invoke?.('packages:openCommunity')}
-              >
-                Open MSFS Community folder
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[#606060]">Not signed in — RAAFv Tasking stays locked.</span>
+              <button type="button" className="win-btn ml-auto" onClick={() => setCrewDialog(true)}>
+                Sign in…
               </button>
             </div>
-          </fieldset>
-        </div>
+          )}
+        </fieldset>
 
+        <fieldset className="win-group mb-2 p-2">
+          <legend className="px-1">Files</legend>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="win-btn"
+              onClick={() => void window.ipc?.invoke?.('app:openDataFolder')}
+              title="Routes, credits, scene-title overrides and the AddonPacks drop folder"
+            >
+              Open data folder
+            </button>
+            <button
+              type="button"
+              className="win-btn"
+              onClick={() => void window.ipc?.invoke?.('app:openUserData')}
+              title="Settings, sign-in and logs"
+            >
+              Open app data
+            </button>
+            <button
+              type="button"
+              className="win-btn"
+              onClick={() => void window.ipc?.invoke?.('packages:openCommunity')}
+            >
+              Open MSFS Community folder
+            </button>
+          </div>
+        </fieldset>
         {crewDialog && (
           <CrewCentreDialog
             onClose={() => {
@@ -219,13 +207,7 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
             onSubmit={(key) => account.linkPhpvms(key)}
           />
         )}
-
-        <div className="flex justify-end border-t border-[#808080] p-2">
-          <button type="button" className="win-btn px-4 py-[2px]" onClick={onClose}>
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
+      </>
+    </WinDialog>
   );
 }

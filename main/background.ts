@@ -8,7 +8,7 @@ import serve from 'electron-serve';
 import Store from 'electron-store';
 import { createWindow } from './helpers';
 import { simBridge, OBJECT_PRESETS, type SimStatus } from './simconnect';
-import { SCENE_LIST, reloadSceneTitleOverrides } from './scenes';
+import { SCENE_LIST, groundContactTitles, reloadSceneTitleOverrides } from './scenes';
 import { autoInstallIfMissing, installPackage, packageStatus } from './packages';
 import {
   ADDON_PACKS,
@@ -19,10 +19,12 @@ import {
 } from './addonpacks';
 import { contactTitles, fsltlStatus } from './fsltl';
 import {
+  fleetList,
   getConfig as phpvmsConfig,
   hasStoredKey as hasStoredRaafvKey,
   linkedPilot,
   linkPhpvms,
+  myFleet,
   raafvGranted,
   revalidate as revalidatePhpvms,
   unlinkPhpvms,
@@ -110,14 +112,26 @@ function tryInjectRemote(obj: RemoteObject): void {
   if (simBridge.findRemote(obj.id)) return;
   const meta = (obj.meta ?? {}) as {
     airContact?: boolean;
+    groundContact?: boolean;
     speedKt?: number;
     altFt?: number;
     route?: { lat: number; lon: number; altFt: number; speedKt: number }[];
     loop?: boolean;
     label?: string;
+    stopAtEnd?: boolean;
   };
   try {
-    if (meta.airContact) {
+    if (meta.groundContact && meta.route?.length) {
+      // A peer's pursuit vehicle. It drives the same route locally so it moves
+      // smoothly between the owner's position reports.
+      simBridge.injectGroundContact({
+        remoteId: obj.id,
+        titles: [obj.title, ...(obj.fallbacks ?? [])],
+        route: meta.route,
+        stopAtEnd: meta.stopAtEnd,
+        label: meta.label,
+      });
+    } else if (meta.airContact) {
       simBridge.injectAirContact({
         remoteId: obj.id,
         titles: [obj.title, ...(obj.fallbacks ?? [])],
@@ -523,6 +537,8 @@ ipcMain.handle('auth:phpvmsLink', async (_e, apiKey: string) => {
   if (res.ok) notifyEntitlements();
   return res;
 });
+ipcMain.handle('fleet:list', () => fleetList());
+ipcMain.handle('fleet:mine', () => myFleet());
 ipcMain.handle('auth:phpvmsUnlink', () => {
   unlinkPhpvms();
   notifyEntitlements();
@@ -850,6 +866,91 @@ ipcMain.handle(
         pendingContactTemp.set(tempId, rec.requestId);
       }
       return { ok: true, object: first, count: n, session: syncClient.connectedSession };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  },
+);
+
+ipcMain.handle(
+  'sim:injectGroundContact',
+  async (
+    _event,
+    spec: {
+      vehicle?: 'car' | 'bike' | 'truck' | 'boat';
+      route: { lat: number; lon: number; speedKt: number }[];
+      behaviour?: 'flee' | 'cruise';
+      holdUntilNm?: number;
+      convoy?: number;
+      label?: string;
+      sceneKey?: string;
+    },
+  ) => {
+    try {
+      if (!spec.route?.length) return { ok: false, error: 'A ground contact needs a route.' };
+      const vehicle = spec.vehicle ?? 'car';
+      const pool = groundContactTitles(vehicle);
+      // A convoy spawns in trail, ~60 m apart. Only the START point is moved
+      // back along the initial bearing — the route itself is shared verbatim,
+      // so every vehicle drives the same real road. (Translating the whole
+      // route, the way a formation of aircraft is offset, would put the
+      // trailing bikes in the paddock beside the highway.)
+      const n = Math.max(1, Math.min(9, spec.convoy ?? 1));
+      const NM = 60;
+      const first = spec.route[0]!;
+      const second = spec.route[1] ?? first;
+      const trailBrg = (bearing(first, second) + 180) % 360; // behind the leader
+      const startBack = (back: number) => {
+        const br = (trailBrg * Math.PI) / 180;
+        return [
+          {
+            ...first,
+            lat: first.lat + (back * Math.cos(br)) / NM,
+            lon: first.lon + (back * Math.sin(br)) / (NM * Math.cos((first.lat * Math.PI) / 180)),
+          },
+          ...spec.route.slice(1),
+        ];
+      };
+
+      let lead: ReturnType<typeof simBridge.injectGroundContact> | null = null;
+      for (let i = 0; i < n; i++) {
+        const route = i === 0 ? spec.route : startBack(i * 0.033); // ~60 m per place in trail
+        const label = n > 1 ? `${spec.label ?? 'Vehicle'} #${i + 1}` : spec.label;
+        const titles = [...pool].sort(() => Math.random() - 0.5);
+        const rec = simBridge.injectGroundContact({
+          titles,
+          route,
+          holdUntilNm: spec.holdUntilNm,
+          // Always true, for both behaviours. A vehicle with no route left
+          // keeps driving on its last heading — which for a "cruise" contact
+          // meant motoring off the end of the road and across the paddocks in
+          // a straight line forever. A shadow job ends with the target parking
+          // at an address, which is what the tasking wants anyway.
+          stopAtEnd: true,
+          label,
+          sceneKey: spec.sceneKey,
+        });
+        if (!lead) lead = rec;
+        const { tempId } = syncClient.publishObject({
+          title: rec.titles[0]!,
+          fallbacks: rec.titles.slice(1, 6),
+          lat: rec.lat,
+          lon: rec.lon,
+          headingDeg: rec.headingDeg,
+          onGround: true,
+          kind: 'vehicle',
+          altFt: rec.altFt ?? 0,
+          meta: {
+            groundContact: true,
+            speedKt: 0,
+            route: route.map((w) => ({ ...w, altFt: 0 })),
+            stopAtEnd: true,
+            label,
+          },
+        });
+        pendingContactTemp.set(tempId, rec.requestId);
+      }
+      return { ok: true, object: lead, count: n, session: syncClient.connectedSession };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }

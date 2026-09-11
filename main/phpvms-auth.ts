@@ -175,3 +175,73 @@ export async function revalidate(): Promise<PhpvmsLinkResult | null> {
 export function unlinkPhpvms(): void {
   clearKey();
 }
+
+// ---- RAAFv fleet ------------------------------------------------------
+
+/** One airframe, and where the crew centre says it is. */
+export type FleetAircraft = {
+  registration: string;
+  type: string;
+  icao: string;
+  squadron: string | null;
+  at: string | null;
+  home: string | null;
+  airborne: boolean;
+};
+
+export type FleetBase = {
+  base: string;
+  ident: string;
+  region: string;
+  dry: boolean;
+  squadrons: string[];
+  aircraft: { registration: string; type: string; icao: string; squadron: string | null; airborne: boolean }[];
+  roles: string[];
+};
+
+export type FleetList = {
+  source: 'crew-centre' | 'roster';
+  fetchedAt: number;
+  note?: string;
+  total: number;
+  airborne: number;
+  homeBases: string[];
+  bases: FleetBase[];
+};
+
+/**
+ * Where the RAAFv fleet is right now, as the tasking generator sees it. The
+ * server holds the snapshot (and the key that reads it), so this is a plain
+ * read of the same data the board was built from — no credential leaves here.
+ */
+export async function fleetList(): Promise<FleetList | null> {
+  try {
+    const r = await fetch(`${apiBase()}/fleet`, { signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) return null;
+    return (await r.json()) as FleetList;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The aircraft THIS pilot is cleared to fly, and where they are. Uses the
+ * member's own stored crew centre key, which is what makes the answer specific
+ * to their rank — the key goes to our API and straight on to the crew centre,
+ * exactly as it does at sign-in.
+ */
+export async function myFleet(): Promise<{ ok: boolean; error?: string; aircraft?: FleetAircraft[] }> {
+  const key = readKey();
+  if (!key) return { ok: false, error: 'Sign in to the crew centre first.' };
+  try {
+    const r = await fetch(`${apiBase()}/fleet/user`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ apiKey: key }),
+      signal: AbortSignal.timeout(25_000),
+    });
+    return (await r.json()) as { ok: boolean; error?: string; aircraft?: FleetAircraft[] };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}

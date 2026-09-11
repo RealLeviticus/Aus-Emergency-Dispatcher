@@ -3,12 +3,21 @@ import dynamic from 'next/dynamic';
 import { SplashProfileId } from '../config/splash';
 import { formatEta, formatLatLon, rangeBearing, sim, useSimStatus, useSyncPeers, type GpsStatus, type PeerPresence, type SimPosition, type SimStatus, useSyncStatus } from '../lib/sim';
 import { classifyAircraft, type Airport, type Call, type Hospital, type Priority } from '../lib/jobgen';
-import { jobs as jobsApi, useJobs, type AirTarget, type Channel, type JobPhase, type ServerJob } from '../lib/jobs';
+import {
+  jobs as jobsApi,
+  useJobs,
+  type AirTarget,
+  type Channel,
+  type GroundTarget,
+  type JobPhase,
+  type ServerJob,
+} from '../lib/jobs';
 import { isMuted, playAccept, playComplete, playNewCall, playPriorityCall, primeAudio, setMuted } from '../lib/audio';
 import { MenuBar } from './MenuBar';
 import { ScenePacksDialog } from './ScenePacksDialog';
 import { UpdateBanner, UpdateDialog } from './UpdateDialog';
 import { OptionsDialog } from './OptionsDialog';
+import { FleetDialog } from './FleetDialog';
 import { useUpdateState } from '../lib/updates';
 const MapView = dynamic(() => import('./MapView'), {
   ssr: false,
@@ -54,11 +63,13 @@ type ActiveMission = {
   airborne: boolean;
   /** RAAFv intercept/AAR/escort: the AI aircraft(s) + route to spawn via FSLTL */
   targets?: AirTarget[];
+  /** police tasking: the vehicle(s)/vessel(s) to spawn and follow */
+  groundTargets?: GroundTarget[];
 };
 
 /** Airborne-only tasks: arrival is "near the point", not "landed and slow". */
 const AIRBORNE_KIND =
-  /intercept|patrol|\bCAP\b|orbit|refuel|reconnaiss|recce|shadow|escort|containment|search|survey|mapping|surveillance/i;
+  /intercept|patrol|\bCAP\b|orbit|refuel|reconnaiss|recce|shadow|escort|containment|search|survey|mapping|surveillance|pursuit|overwatch|monitoring|enforcement|detection|manhunt/i;
 
 /** Next-step button label; depends on whether the job has a patient transport leg. */
 function phaseAction(phase: Phase, hasTransport: boolean): string {
@@ -174,6 +185,7 @@ function jobToCall(j: ServerJob): Call {
     distanceNm: 0,
     receivedOffsetSec: Math.max(0, Math.round((Date.now() - j.createdAt) / 1000)),
     transportTo: j.transportTo,
+    tasked: j.tasked,
   };
 }
 
@@ -182,6 +194,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const channel: Channel = props.profileId === 'military' ? 'raafv' : 'emergency';
   const isRaafv = channel === 'raafv';
   const [detailJobId, setDetailJobId] = useState<string | null>(null);
+  const [fleetOpen, setFleetOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [active, setActive] = useState<ActiveMission | null>(null);
   const [log, setLog] = useState<ShiftLog>(SHIFT_EMPTY);
@@ -374,8 +387,10 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
         phaseSince: Date.now(),
         onSceneSec: 45 + Math.floor(Math.random() * 70),
         atHospitalSec: 40 + Math.floor(Math.random() * 45),
-        airborne: Boolean(j.targets?.length) || AIRBORNE_KIND.test(j.kind),
+        // A pursuit is flown, not landed at: arrival means "you have the eye".
+        airborne: Boolean(j.targets?.length) || Boolean(j.groundTargets?.length) || AIRBORNE_KIND.test(j.kind),
         targets: j.targets,
+        groundTargets: j.groundTargets,
       });
       setDetailJobId(null);
       setSelectedJobId(null);
@@ -525,9 +540,10 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   // you get within ~12 NM so they're there on arrival.
   useEffect(() => {
     if (!active || !simStatus.connected) return;
-    if (active.targets?.length && spawnedForRef.current !== active.jobId) {
+    const hasTargets = Boolean(active.targets?.length) || Boolean(active.groundTargets?.length);
+    if (hasTargets && spawnedForRef.current !== active.jobId) {
       spawnedForRef.current = active.jobId;
-      for (const t of active.targets) {
+      for (const t of active.targets ?? []) {
         void sim.injectAirContact({
           route: t.route,
           loop: t.loop,
@@ -536,6 +552,22 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
           holdUntilNm: t.holdUntilNm,
           label: t.label,
         });
+      }
+      // Police tasking: the vehicle waits at the start of its run until you are
+      // close, then drives the route. Only the lead unit owns it — the others
+      // mirror it through the session, or every crew spawns their own car.
+      if (leadRef.current) {
+        for (const t of active.groundTargets ?? []) {
+          void sim.injectGroundContact({
+            vehicle: t.vehicle,
+            route: t.route,
+            behaviour: t.behaviour,
+            holdUntilNm: t.holdUntilNm,
+            convoy: t.convoy,
+            label: t.label,
+            sceneKey: active.jobId,
+          });
+        }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -577,9 +609,43 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
           });
         }
 
+        // A pursuit's scene belongs where the car actually STOPPED, not at the
+        // address the job was raised at — by then the vehicle is ten miles away.
+        // Drop the cordon on the bail-out the moment it comes to rest.
+        if (cur.groundTargets?.length && leadRef.current && sceneDoneRef.current !== cur.jobId) {
+          const stoppedVeh = status.injected.find((o) => o.isGround && o.stopped && o.source === 'local');
+          if (stoppedVeh) {
+            sceneDoneRef.current = cur.jobId;
+            void sim.injectScene({
+              sceneId: 'auto',
+              lat: stoppedVeh.lat,
+              lon: stoppedVeh.lon,
+              headingSeed: cur.jobId,
+              sceneKey: cur.jobId,
+              kind: cur.call.kind,
+              category: cur.call.category,
+              seed: cur.jobId,
+            });
+          }
+        }
+
+        // A police tasking is not over on a timer — it is over when the vehicle
+        // stops and the offenders are contained. Hold on scene until then (with
+        // a long backstop so a cruise job or a lost contact still closes out).
+        const chasing = Boolean(cur.groundTargets?.length);
+        const veh = chasing ? status.injected.find((o) => o.isGround && o.source === 'local') : undefined;
+        const stillRunning = Boolean(veh && !veh.stopped);
+        const eyeRadius = chasing ? 2.5 : arrRadius;
+        const onSceneFor = chasing ? Math.max(cur.onSceneSec, 40) : cur.onSceneSec;
+
         let next: Phase | null = cur.phase;
-        if (cur.phase === 'enroute' && rng(scene) < arrRadius && settled && since > 6) next = 'onscene';
-        else if (cur.phase === 'onscene' && since > cur.onSceneSec) next = hasT ? 'transport' : 'returning';
+        // With a pursuit, "on scene" means you have the EYE — you are over the
+        // vehicle, wherever it has got to, not over the original address.
+        if (cur.phase === 'enroute' && chasing && veh) {
+          if (rng({ lat: veh.lat, lon: veh.lon }) < eyeRadius && since > 6) next = 'onscene';
+        } else if (cur.phase === 'enroute' && rng(scene) < arrRadius && settled && since > 6) next = 'onscene';
+        else if (cur.phase === 'onscene' && chasing && stillRunning && since < 25 * 60) next = cur.phase;
+        else if (cur.phase === 'onscene' && since > onSceneFor) next = hasT ? 'transport' : 'returning';
         else if (cur.phase === 'transport' && hosp && rng(hosp) < 1.3 && settled && since > 6) next = 'athospital';
         else if (cur.phase === 'athospital' && since > cur.atHospitalSec) next = 'returning';
         else if (cur.phase === 'returning' && rng(home) < 2 && settled && since > 6) next = null;
@@ -799,6 +865,9 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
             label: 'View',
             items: [
               { label: 'Mute alert sounds', checked: muted, onClick: toggleMute },
+              ...(channel === 'raafv'
+                ? [{ label: 'RAAFv fleet — where the aircraft are…', onClick: () => setFleetOpen(true) }]
+                : []),
               { label: 'Options…', onClick: () => setOptionsOpen(true) },
               { label: 'Reload console', onClick: () => void window.ipc?.invoke?.('window:reload') },
             ],
@@ -1043,6 +1112,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
       {scenePacksOpen && <ScenePacksDialog onClose={() => setScenePacksOpen(false)} />}
       {updateOpen && <UpdateDialog onClose={() => setUpdateOpen(false)} />}
       {optionsOpen && <OptionsDialog onClose={() => setOptionsOpen(false)} />}
+      {fleetOpen && <FleetDialog onClose={() => setFleetOpen(false)} />}
     </div>
   );
 }
@@ -1582,7 +1652,41 @@ function CallDetail({
 
           <div className="grid grid-cols-2 items-start gap-x-3">
             <GroupBox title="Response">
-              <KeyRow label="Nearest asset" value={call.nearestAsset} wide={104} />
+              {call.tasked ? (
+                <>
+                  <KeyRow label="Squadron" value={call.tasked.squadron} wide={104} />
+                  <KeyRow label="Aircraft" value={call.tasked.type} wide={104} />
+                  <KeyRow
+                    label="Airframe"
+                    wide={104}
+                    value={
+                      call.tasked.registration ? (
+                        <span className="font-mono font-bold">{call.tasked.registration}</span>
+                      ) : (
+                        // No tail number means the crew centre fleet was not
+                        // readable — say so rather than inventing one.
+                        <span className="text-[#606060]">any available — fleet not read</span>
+                      )
+                    }
+                  />
+                  <KeyRow
+                    label="From"
+                    wide={104}
+                    value={
+                      <>
+                        {call.tasked.homeBase}
+                        {call.tasked.detachment && (
+                          <span className="ml-1 text-[#a05000]" title="The squadron is deployed here, not based here">
+                            — detachment
+                          </span>
+                        )}
+                      </>
+                    }
+                  />
+                </>
+              ) : (
+                <KeyRow label="Nearest asset" value={call.nearestAsset} wide={104} />
+              )}
               <div className="mt-1 text-[#404040]">Units:</div>
               <ul className="ml-4 list-disc">
                 {call.units.map((u) => (
@@ -1658,19 +1762,23 @@ function TrackingTab({
   phase,
   base,
   targets,
+  groundTargets,
 }: {
   call: Call;
   sim: SimStatus;
   phase: Phase;
   base: Base;
   targets?: AirTarget[];
+  groundTargets?: GroundTarget[];
 }) {
   const pos = sim.position;
   const tgt = activeTarget(call, phase, base);
   const rb = pos ? rangeBearing({ lat: pos.lat, lon: pos.lon }, { lat: tgt.lat, lon: tgt.lon }) : null;
 
   // RAAFv intercept picture: live contact if it's airborne, else the spawn point.
-  const liveContact = sim.injected.find((o) => o.isAircraft && o.objectId != null && Number.isFinite(o.lat));
+  const liveContact = sim.injected.find(
+    (o) => o.isAircraft && !o.isGround && o.objectId != null && Number.isFinite(o.lat),
+  );
   const primary = targets?.[0];
   const aim = liveContact
     ? {
@@ -1692,6 +1800,14 @@ function TrackingTab({
         }
       : null;
   const irb = pos && aim ? rangeBearing({ lat: pos.lat, lon: pos.lon }, { lat: aim.lat, lon: aim.lon }) : null;
+
+  // Police picture: the vehicle being followed. Prefer the live injected
+  // contact; before it spawns, fall back to the start of its route.
+  const ground = groundTargets?.[0];
+  const groundLive = sim.injected.find((o) => o.isGround && o.objectId != null && Number.isFinite(o.lat));
+  const groundAt = groundLive ?? ground?.route[0];
+  const grb =
+    pos && groundAt ? rangeBearing({ lat: pos.lat, lon: pos.lon }, { lat: groundAt.lat, lon: groundAt.lon }) : null;
   // rough time to close, using own groundspeed + a head-on closure assumption
   const closeKt = pos ? Math.max(60, pos.groundSpeedKt + (aim?.live && !aim.holding ? (aim.spd ?? 0) * 0.4 : 0)) : 0;
 
@@ -1785,6 +1901,65 @@ function TrackingTab({
           </p>
         )}
       </GroupBox>
+
+      {ground && (
+        <GroupBox
+          title={
+            groundLive
+              ? groundLive.stopped
+                ? ground.behaviour === 'cruise'
+                  ? 'Surveillance — vehicle stopped'
+                  : 'Pursuit — vehicle stopped'
+                : groundLive.holding
+                  ? ground.behaviour === 'cruise'
+                    ? 'Surveillance — vehicle stationary'
+                    : 'Pursuit — vehicle waiting'
+                  : ground.behaviour === 'cruise'
+                    ? 'Surveillance — target moving'
+                    : 'Pursuit — running'
+              : ground.behaviour === 'cruise'
+              ? 'Surveillance — not yet spawned'
+              : 'Pursuit — not yet spawned'
+          }
+        >
+          <div className="flex gap-3">
+            <SunkenField label="Bearing" value={grb ? heading(grb.bearingDeg) : '—'} />
+            <SunkenField label="Range" value={grb ? `${grb.rangeNm.toFixed(1)} NM` : '—'} />
+            <SunkenField
+              label="Speed"
+              value={groundLive ? `${Math.round((groundLive.speedKt ?? 0) * 1.852)} km/h` : '—'}
+            />
+            <SunkenField label="Track" value={groundLive ? heading(groundLive.headingDeg) : '—'} />
+          </div>
+          <p className="mt-2 text-[11px] text-[#404040]">
+            <b className="text-black">{ground.label}</b>
+            {ground.rego ? ` · ${ground.rego}` : ''}
+            {ground.convoy && ground.convoy > 1 ? ` · ${ground.convoy} vehicles` : ''}
+          </p>
+          {ground.roads?.length ? (
+            <p className="mt-1 text-[11px] text-[#404040]">
+              Route: <b className="text-black">{ground.roads.join(' → ')}</b>
+            </p>
+          ) : null}
+          <p className="mt-1 text-[11px] text-[#404040]">
+            {!groundLive
+              ? 'Waiting on the simulator — the vehicle is placed once the job goes active.'
+              : groundLive.stopped
+                ? ground.behaviour === 'cruise'
+                  ? 'Vehicle has stopped at an address — pass the location to the ground crews, then return to base.'
+                  : 'Vehicle stationary — offenders decamped. Hold the eye for the ground units, then return to base.'
+                : groundLive.holding
+                  ? `Holding at the start — close inside ${ground.holdUntilNm ?? 8} NM and it will run.`
+                  : grb && grb.rangeNm < 0.6
+                    ? 'Directly overhead — you have the eye. Call the commentary.'
+                    : grb && grb.rangeNm > 4
+                      ? 'Falling behind — close up or you will lose it.'
+                      : ground.behaviour === 'cruise'
+                        ? 'Shadowing — stay high and offset, do not overfly it.'
+                        : 'Running — keep the eye and call street names and direction.'}
+          </p>
+        </GroupBox>
+      )}
 
       {primary && (
         <GroupBox title={aim?.live ? 'Target — live' : 'Target — spawn point'}>
@@ -2057,7 +2232,14 @@ function ActiveJob({
             ) : (
               <div className="flex h-full min-h-0">
                 <div className="w-[320px] shrink-0 overflow-auto border-r-2 border-[#808080] p-3">
-                  <TrackingTab call={call} sim={simStatus} phase={phase} base={base} targets={mission.targets} />
+                  <TrackingTab
+                    call={call}
+                    sim={simStatus}
+                    phase={phase}
+                    base={base}
+                    targets={mission.targets}
+                    groundTargets={mission.groundTargets}
+                  />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div className="flex items-center gap-2 border-b border-[#808080] px-2 py-1">
@@ -2156,15 +2338,17 @@ function ActiveJob({
                       objects={simStatus.injected}
                       targetRoutes={targets.map((t) => ({ label: t.label, route: t.route, loop: t.loop }))}
                       contacts={simStatus.injected
-                        .filter((o) => o.isAircraft && o.objectId != null && Number.isFinite(o.lat))
+                        .filter((o) => (o.isAircraft || o.isGround) && o.objectId != null && Number.isFinite(o.lat))
                         .map((o) => ({
                           lat: o.lat,
                           lon: o.lon,
                           headingDeg: o.headingDeg,
-                          label: o.label ?? primaryTarget?.label ?? 'contact',
+                          label: o.label ?? (o.isGround ? 'vehicle' : (primaryTarget?.label ?? 'contact')),
                           altFt: o.altFt,
                           speedKt: o.speedKt,
                           holding: o.holding,
+                          ground: o.isGround,
+                          stopped: o.stopped,
                         }))}
                     />
                   </div>

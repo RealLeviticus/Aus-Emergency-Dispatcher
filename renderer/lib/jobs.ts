@@ -21,6 +21,25 @@ export type AirTarget = {
   route: { lat: number; lon: number; altFt: number; speedKt: number }[];
 };
 
+/**
+ * A moving GROUND or surface vehicle a job wants spawned — the car in a police
+ * pursuit, a monitored convoy, a vessel of interest. Its route follows the real
+ * road graph (see API/src/roads.ts).
+ */
+export type GroundTarget = {
+  label: string;
+  vehicle: 'car' | 'bike' | 'truck' | 'boat';
+  /** `flee` runs and bails out at the end; `cruise` drives on, unaware */
+  behaviour: 'flee' | 'cruise';
+  /** waits at route[0] until the aircraft is within this range */
+  holdUntilNm?: number;
+  /** spawn this many in trail */
+  convoy?: number;
+  rego?: string;
+  roads?: string[];
+  route: { lat: number; lon: number; speedKt: number }[];
+};
+
 /** A job from the shared server pool (see API/src/jobgen.ts). */
 export type ServerJob = {
   id: string;
@@ -57,8 +76,25 @@ export type ServerJob = {
   transportTo?: Hospital;
   patient?: string;
   timeline?: string;
+  /**
+   * RAAFv only: the airframe the tasking was written for. `registration` is a
+   * real tail number from the crew centre fleet, present only when that aircraft
+   * is genuinely parked at the base and not already flying.
+   */
+  tasked?: {
+    type: string;
+    squadron: string;
+    registration?: string;
+    /** where the sortie launches from — not necessarily the squadron's home */
+    homeBase: string;
+    /** the squadron is deployed there rather than based there */
+    detachment?: boolean;
+    source: 'crew-centre' | 'roster';
+  };
   channel: Channel;
   targets?: AirTarget[];
+  /** vehicles / vessels to spawn and track — police pursuits and surveillance */
+  groundTargets?: GroundTarget[];
   /** everyone working this call (lead + anyone who joined) */
   party?: { clientId: string; name: string; joinedAt: number }[];
 };

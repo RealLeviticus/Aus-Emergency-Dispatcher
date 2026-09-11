@@ -45,6 +45,17 @@ export type Call = {
   receivedOffsetSec: number;
   /** medivac jobs: after "on scene", the crew transports the patient here */
   transportTo?: Hospital;
+  /** RAAFv tasking: the aircraft, squadron and base the job was written for */
+  tasked?: {
+    type: string;
+    squadron: string;
+    registration?: string;
+    /** where the sortie launches from — not necessarily the squadron's home */
+    homeBase: string;
+    /** the squadron is deployed there rather than based there */
+    detachment?: boolean;
+    source: 'crew-centre' | 'roster';
+  };
 };
 
 // --- seeded RNG ----------------------------------------------------------------

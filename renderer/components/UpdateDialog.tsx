@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { formatBytes, formatRate, updates, useUpdateState } from '../lib/updates';
+import { WinDialog } from './WinDialog';
 
 /**
  * Win9x-style "check for updates" window (Help ▸ Check for updates), and the
@@ -40,79 +41,12 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
                   : `You are up to date`;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40" onMouseDown={onClose}>
-      <div
-        className="win-window flex w-[480px] flex-col"
-        onMouseDown={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-label="Software update"
-      >
-        <div className="win-titlebar flex items-center justify-between px-2 py-[2px]">
-          <span className="font-bold">Software update</span>
-          <button type="button" className="win-titlebar-btn" onClick={onClose} aria-label="Close">
-            ×
-          </button>
-        </div>
-
-        <div className="p-3 text-[12px] leading-snug">
-          <div className="win-sunken mb-2 px-2 py-[6px]">
-            <div className="font-bold">{headline}</div>
-            <div className="text-[11px] text-[#404040]">
-              Installed: <b>{state.currentVersion || '—'}</b>
-              {state.channel === 'beta' && <span className="ml-2 text-[#a05000]">beta channel</span>}
-              {state.lastCheckedAt && (
-                <span className="ml-2 text-[#606060]">
-                  last checked {new Date(state.lastCheckedAt).toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {(state.phase === 'downloading' || state.phase === 'available') && (
-            <div className="mb-2">
-              <div className="win-sunken h-[14px] w-full p-[2px]">
-                <div
-                  className="h-full transition-[width] duration-200"
-                  style={{ width: `${state.percent}%`, background: '#000080' }}
-                />
-              </div>
-              <div className="mt-[2px] flex justify-between text-[11px] text-[#404040]">
-                <span>{state.percent}%</span>
-                <span>
-                  {state.total > 0
-                    ? `${formatBytes(state.transferred)} of ${formatBytes(state.total)}  ${formatRate(state.bytesPerSecond)}`
-                    : 'Starting…'}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {ready && (
-            <p className="mb-2">
-              The update installs when the console closes. Restart now if you are not on a job — it takes a few seconds
-              and reopens straight back here.
-            </p>
-          )}
-
-          {state.phase === 'error' && (
-            <p className="mb-2 text-[#a00000]">
-              {state.error}
-              <br />
-              <span className="text-[#404040]">The console works normally; it will try again on the next launch.</span>
-            </p>
-          )}
-
-          {state.releaseNotes && (ready || state.phase === 'downloading' || state.phase === 'available') && (
-            <fieldset className="win-group p-2">
-              <legend className="px-1">What&rsquo;s new in {state.newVersion}</legend>
-              <div className="win-sunken max-h-[160px] overflow-y-auto whitespace-pre-wrap px-2 py-1 text-[11px]">
-                {state.releaseNotes}
-              </div>
-            </fieldset>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-2 border-t border-[#808080] p-2">
+    <WinDialog
+      title="Software update"
+      width={480}
+      onClose={onClose}
+      footer={
+        <>
           <label className="flex items-center gap-1.5 text-[11px] text-[#303030]">
             <input
               type="checkbox"
@@ -121,28 +55,86 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
             />
             Get beta builds
           </label>
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
-              className="win-btn px-3 py-[2px]"
+              className="win-btn"
               disabled={busy || state.phase === 'installing'}
               onClick={() => void updates.check()}
             >
               Check again
             </button>
             {ready ? (
-              <button type="button" className="win-btn px-4 py-[2px] font-bold" onClick={() => void updates.install()}>
+              <button type="button" className="win-btn is-default" onClick={() => void updates.install()}>
                 Restart &amp; install
               </button>
             ) : (
-              <button type="button" className="win-btn px-4 py-[2px]" onClick={onClose}>
+              <button type="button" className="win-btn" onClick={onClose}>
                 Close
               </button>
             )}
           </div>
+        </>
+      }
+    >
+      <>
+        <div className="win-sunken mb-2 px-2 py-[6px]">
+          <div className="font-bold">{headline}</div>
+          <div className="text-[11px] text-[#404040]">
+            Installed: <b>{state.currentVersion || '—'}</b>
+            {state.channel === 'beta' && <span className="ml-2 text-[#a05000]">beta channel</span>}
+            {state.lastCheckedAt && (
+              <span className="ml-2 text-[#606060]">
+                last checked {new Date(state.lastCheckedAt).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+
+        {(state.phase === 'downloading' || state.phase === 'available') && (
+          <div className="mb-2">
+            <div className="win-sunken h-[14px] w-full p-[2px]">
+              <div
+                className="h-full transition-[width] duration-200"
+                style={{ width: `${state.percent}%`, background: '#000080' }}
+              />
+            </div>
+            <div className="mt-[2px] flex justify-between text-[11px] text-[#404040]">
+              <span>{state.percent}%</span>
+              <span>
+                {state.total > 0
+                  ? `${formatBytes(state.transferred)} of ${formatBytes(state.total)}  ${formatRate(state.bytesPerSecond)}`
+                  : 'Starting…'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {ready && (
+          <p className="mb-2">
+            The update installs when the console closes. Restart now if you are not on a job — it takes a few seconds
+            and reopens straight back here.
+          </p>
+        )}
+
+        {state.phase === 'error' && (
+          <p className="mb-2 text-[#a00000]">
+            {state.error}
+            <br />
+            <span className="text-[#404040]">The console works normally; it will try again on the next launch.</span>
+          </p>
+        )}
+
+        {state.releaseNotes && (ready || state.phase === 'downloading' || state.phase === 'available') && (
+          <fieldset className="win-group p-2">
+            <legend className="px-1">What&rsquo;s new in {state.newVersion}</legend>
+            <div className="win-sunken max-h-[160px] overflow-y-auto whitespace-pre-wrap px-2 py-1 text-[11px]">
+              {state.releaseNotes}
+            </div>
+          </fieldset>
+        )}
+      </>
+    </WinDialog>
   );
 }
 

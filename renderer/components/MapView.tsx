@@ -16,6 +16,23 @@ function dot(color: string, label?: string): L.DivIcon {
   });
 }
 
+/**
+ * A ground contact — the vehicle in a police pursuit. Deliberately a different
+ * SHAPE from the aircraft triangle, not just a different colour: on a busy map
+ * the crew has to tell the car from the helicopter at a glance.
+ */
+function vehicleIcon(headingDeg: number, color: string, label?: string): L.DivIcon {
+  return L.divIcon({
+    className: '',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    html: `<div style="position:relative">
+      <div style="transform:rotate(${headingDeg}deg);width:8px;height:13px;background:${color};border:1.5px solid #000;border-radius:2px;box-shadow:0 0 2px #000"></div>
+      ${label ? `<span style="position:absolute;left:13px;top:0;font:700 11px Tahoma,sans-serif;color:#000;background:#ffffffcc;padding:0 3px;white-space:nowrap">${label}</span>` : ''}
+    </div>`,
+  });
+}
+
 function aircraftIcon(headingDeg: number, color: string, label?: string): L.DivIcon {
   return L.divIcon({
     className: '',
@@ -64,6 +81,10 @@ type Contact = {
   altFt?: number;
   speedKt?: number;
   holding?: boolean;
+  /** a ground/surface contact (a pursuit vehicle) rather than an aircraft */
+  ground?: boolean;
+  /** a fleeing vehicle that has reached the end of its run */
+  stopped?: boolean;
 };
 
 export default function MapView({
@@ -245,7 +266,7 @@ export default function MapView({
     }
 
     for (const o of objects) {
-      if (o.isAircraft) continue; // aircraft contacts are drawn below
+      if (o.isAircraft || o.isGround) continue; // contacts are drawn below
       L.marker([o.lat, o.lon], { icon: dot(o.error ? '#808080' : '#008000') }).addTo(layer);
     }
 
@@ -262,21 +283,32 @@ export default function MapView({
       L.marker([s.lat, s.lon], { icon: dot('#c0179c', `${tr.label} — start`) }).addTo(layer);
     }
 
-    // RAAFv: live airborne contact(s)
+    // Live contact(s): a RAAFv intercept target, or a police pursuit vehicle.
     for (const c of contacts ?? []) {
-      const meta = [
-        c.altFt ? `FL${Math.round(c.altFt / 100)}` : '',
-        c.speedKt ? `${Math.round(c.speedKt)}kt` : '',
-        c.holding ? 'HOLDING' : '',
-      ]
-        .filter(Boolean)
-        .join(' · ');
+      // A vehicle is called in km/h, not knots — nobody says a car is doing 70 kt.
+      const meta = c.ground
+        ? [c.stopped ? 'STOPPED' : `${Math.round((c.speedKt ?? 0) * 1.852)} km/h`, c.holding ? 'WAITING' : '']
+            .filter(Boolean)
+            .join(' · ')
+        : [
+            c.altFt ? `FL${Math.round(c.altFt / 100)}` : '',
+            c.speedKt ? `${Math.round(c.speedKt)}kt` : '',
+            c.holding ? 'HOLDING' : '',
+          ]
+            .filter(Boolean)
+            .join(' · ');
+      const colour = c.ground
+        ? c.stopped
+          ? '#808080'
+          : c.holding
+            ? '#e0a000'
+            : '#0050c0'
+        : c.holding
+          ? '#e0a000'
+          : '#e00000';
+      const label = `${c.label ?? 'contact'}${meta ? ` (${meta})` : ''}`;
       L.marker([c.lat, c.lon], {
-        icon: aircraftIcon(
-          c.headingDeg,
-          c.holding ? '#e0a000' : '#e00000',
-          `${c.label ?? 'contact'}${meta ? ` (${meta})` : ''}`,
-        ),
+        icon: c.ground ? vehicleIcon(c.headingDeg, colour, label) : aircraftIcon(c.headingDeg, colour, label),
       }).addTo(layer);
       if (aircraft) {
         L.polyline(
@@ -284,7 +316,7 @@ export default function MapView({
             [aircraft.lat, aircraft.lon],
             [c.lat, c.lon],
           ],
-          { color: '#e00000', weight: 1, dashArray: '2 6', opacity: 0.6 },
+          { color: c.ground ? '#0050c0' : '#e00000', weight: 1, dashArray: '2 6', opacity: 0.6 },
         ).addTo(layer);
       }
     }

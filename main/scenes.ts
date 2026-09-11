@@ -42,6 +42,12 @@ const G: Record<string, string[]> = {
   /** police patrol — no marked car in any pack; a plain sedan stands in */
   policeCar: ['30West A45', 'Mercedes A45'],
   towTruck: ['TowTruck1', 'TowTruck2'],
+  // --- moving contacts: the vehicle being followed in a police tasking ---
+  // These must be INTACT and drivable-looking; the wreck groups are for scenes.
+  fleeCar: ['Mercedes A45', '30West A45'],
+  fleeBike: ['30West Motocyc2', 'ATV1 Red'],
+  fleeTruck: ['30West Fueltruck', 'TowTruck1'],
+  fleeBoat: ['Sea Ray', 'Cabin Boat 1', 'Fishing Boat 1', 'Pontoon Boat 1'],
   atv: ['ATV1 Red', 'ATV1 Blue', 'ATV1 Yellow'],
   golfCart: ['Golf Cart 1'],
   tractor: ['NewHolland-Tractor', 'Zetor-Tractor', 'JohnDeere-Combine'],
@@ -113,6 +119,10 @@ const G: Record<string, string[]> = {
 /** App-shipped fallback models by the kind of thing the group represents. */
 function fallbacksFor(group: string): string[] {
   if (/^(wreckBus|trainCar|trainPower|heliWreck|planeWreck)/.test(group)) return ['AED_Wreck', 'AED_Truck'];
+  // A moving contact is checked BEFORE the wreck rule below: a car being
+  // pursued must not fall back to a wreck model.
+  if (/^fleeBoat/.test(group)) return ['AED_Boat'];
+  if (/^flee/.test(group)) return ['AED_Car', 'AED_Car4x4', 'Generic_Vehicle', 'AED_Truck'];
   if (/wreck|^car|truck|tanker|tow|atv|tractor|plant|golf|bike/i.test(group)) return ['AED_Wreck', 'AED_Car', 'AED_Car4x4', 'Generic_Vehicle'];
   if (/^fireAppliance/.test(group)) return ['AED_FireTruck', 'AED_Ambulance', 'FuelTruck'];
   if (/^policeCar/.test(group)) return ['AED_PoliceCar', 'AED_Car', 'AED_Ambulance'];
@@ -217,6 +227,10 @@ const BASE_2024: Record<string, string[]> = {
   wreckBike: ['Microsoft_Motorbike_01', 'Microsoft_Motorbike_02', 'Microsoft_Motorbike_03'],
   tanker: ['Microsoft_Truck_Fuel_Long_02', 'Microsoft_Truck_Water_02'],
   carIntact: ['Microsoft_Car_EUR_03', 'Microsoft_SUV_NA_01', 'Microsoft_Car_NA_02'],
+  fleeCar: ['Microsoft_Car_EUR_03', 'Microsoft_Car_NA_02', 'Microsoft_SUV_NA_01', 'Microsoft_Car_JPN_01'],
+  fleeBike: ['Microsoft_Motorbike_01', 'Microsoft_Motorbike_02', 'Microsoft_Motorbike_03'],
+  fleeTruck: ['Microsoft_Truck_NA', 'Microsoft_Van_NA_Modern'],
+  fleeBoat: ['LifeRaft', 'LifeRaft_Characters'],
   // base game has no ambulance — a box van reads far closer than a fire truck
   ambulance: ['Microsoft_Van_NA_Modern', 'Microsoft_Van_EUR', 'Microsoft_Truck_NA_Boarding'],
   ambulanceLit: ['Microsoft_Van_NA_Modern', 'Microsoft_Van_EUR', 'Microsoft_Truck_NA_Boarding'],
@@ -267,7 +281,20 @@ const BASE_2024: Record<string, string[]> = {
  * no fire appliance, no pylon and no genset, and an Australian animal strike
  * should be a kangaroo.
  */
-const BASE_FIRST = new Set(['fireAppliance', 'powerline', 'generator', 'deer', 'stretcher']);
+// On MSFS 2024 the sim's own models win for these groups. The moving pursuit
+// vehicles are included because the packs only offer one or two sedans, and a
+// pursuit where the target and every parked car are the same Mercedes reads
+// badly — the base game has a proper spread of cars, bikes and trucks.
+const BASE_FIRST = new Set([
+  'fireAppliance',
+  'powerline',
+  'generator',
+  'deer',
+  'stretcher',
+  'fleeCar',
+  'fleeBike',
+  'fleeTruck',
+]);
 
 /** Legacy pool ids kept so old `scene-titles.json` keys still map to a group. */
 const LEGACY_ALIAS: Record<string, string> = {
@@ -1030,6 +1057,69 @@ const GENS: Record<string, { label: string; gen: SceneGen }> = {
     },
   },
 
+  siege: {
+    label: 'Police — siege / critical incident',
+    gen: (rng) => {
+      const out: SceneObjectSpec[] = [];
+      // The address itself sits at the origin; everything else is the cordon
+      // standing OFF it, which is what the incident actually looks like from
+      // the air — a ring of vehicles and an empty middle.
+      out.push(spec('carIntact', 0, 0, rng.sub(0, 360))); // the offender's vehicle in the drive
+      const ring = rng.int(4, 6);
+      for (let i = 0; i < ring; i++) {
+        const a = (360 / ring) * i + rng.sub(-18, 18);
+        const r = rng.sub(28, 42);
+        const br = (a * Math.PI) / 180;
+        out.push(spec('policeCar', r * Math.cos(br), r * Math.sin(br), (a + 180) % 360));
+      }
+      // officers behind the vehicles, not out in the open
+      for (let i = 0, n = rng.int(4, 6); i < n; i++) {
+        const a = rng.sub(0, 360);
+        const r = rng.sub(26, 40);
+        const br = (a * Math.PI) / 180;
+        out.push(spec('officer', r * Math.cos(br), r * Math.sin(br), (a + 180) % 360));
+      }
+      // forward command post + ambulance staged well back
+      out.push(spec('ambulanceLit', -rng.sub(55, 75), rng.sub(-14, 14), rng.sub(-15, 15)));
+      out.push(spec('carIntact', -rng.sub(50, 70), rng.sub(10, 26), rng.sub(-15, 15)));
+      if (rng.chance(0.6)) out.push(spec('dog', -rng.sub(44, 58), rng.sub(-12, -4), rng.sub(0, 360)));
+      coneLine(rng, -rng.sub(40, 52), rng.sub(-6, 6), rng.chance(0.5) ? 90 : 270, rng.int(5, 8), rng.sub(4, 6), out);
+      return out;
+    },
+  },
+
+  crowd: {
+    label: 'Police — public order / event',
+    gen: (rng) => {
+      const out: SceneObjectSpec[] = [];
+      // A dense block of people with a police line across the front of it.
+      const rows = rng.int(4, 5);
+      const perRow = rng.int(3, 4);
+      const gap = rng.sub(3.5, 5.5);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < perRow; c++) {
+          out.push(
+            spec(
+              rng.chance(0.5) ? 'bystander' : 'worker',
+              -r * gap + rng.sub(-1, 1),
+              (c - (perRow - 1) / 2) * gap + rng.sub(-1, 1),
+              rng.sub(-25, 25), // all roughly facing the police line
+            ),
+          );
+        }
+      }
+      // the line itself, and the vehicles behind it
+      for (let i = 0, n = rng.int(3, 4); i < n; i++) {
+        out.push(spec('officer', rng.sub(9, 12), (i - 1.5) * rng.sub(3, 4.5), 180 + rng.sub(-12, 12)));
+      }
+      out.push(spec('policeCar', rng.sub(18, 26), rng.sub(-8, 0), 90 + rng.sub(-15, 15)));
+      out.push(spec('policeCar', rng.sub(18, 26), rng.sub(2, 10), 90 + rng.sub(-15, 15)));
+      if (rng.chance(0.6)) out.push(spec('ambulanceLit', rng.sub(28, 38), rng.sub(-10, 10), rng.sub(-15, 15)));
+      coneLine(rng, rng.sub(13, 16), rng.sub(-10, -6), 90, rng.int(4, 7), rng.sub(3.5, 5), out);
+      return out;
+    },
+  },
+
   marker: {
     label: 'Single marker',
     gen: (rng) => [spec('beacon', 0, 0, 0), spec('flare', rng.sub(-1, 1), rng.sub(-1, 1), 0)],
@@ -1071,6 +1161,13 @@ export function sceneObjectTitles(obj: SceneObjectSpec): string[] {
   return groupTitles(obj.group);
 }
 
+/** Title chain for a moving ground/surface contact (a pursuit vehicle, a vessel). */
+export function groundContactTitles(vehicle: 'car' | 'bike' | 'truck' | 'boat'): string[] {
+  const group =
+    vehicle === 'bike' ? 'fleeBike' : vehicle === 'truck' ? 'fleeTruck' : vehicle === 'boat' ? 'fleeBoat' : 'fleeCar';
+  return groupTitles(group);
+}
+
 export function sceneForJob(kind: string, category = ''): string {
   const s = `${kind} ${category}`.toLowerCase();
 
@@ -1101,12 +1198,19 @@ export function sceneForJob(kind: string, category = ''): string {
   if (/vessel .*fire|boat .*fire|rig fire|marine .*fire/.test(s)) return 'marinefire';
   if (/search and rescue|distress beacon|search.*datum/.test(s)) return 'sar';
   if (/\bdiving\b|decompression|\bdci\b/.test(s)) return 'diving';
-  if (/\bmarine\b|vessel|overboard|epirb|maritime/.test(s)) return 'marine';
+  if (/\bmarine\b|vessel|overboard|epirb|maritime|illegal fishing|foreign fishing/.test(s)) return 'marine';
   if (/\bcliff|abseil|rock platform|coastal .*rescue|surf\b/.test(s)) return 'winch';
   if (/heli.*crash|aircraft crash|plane crash|agricultural aircraft/.test(s)) return 'helicrash';
-  // Missing-person searches before the police catch-all: both are police
-  // aviation, but one is a cordon and the other is a grid over bushland.
+  // Police sub-types before the police catch-all. Every one of these carries
+  // the category "Police aviation", so without them the crowd at a protest,
+  // the siege house and the paddock at a stock theft all came out as the same
+  // roadside cordon.
   if (/missing person|bushwalker|bushland search|dementia/.test(s)) return 'search';
+  if (/siege|critical incident|barricad/.test(s)) return 'siege';
+  if (/public order|crowd|protest|major event|event overwatch/.test(s)) return 'crowd';
+  if (/cannabis|crop detection|manhunt|escapee/.test(s)) return 'search';
+  if (/stock theft|rural crime/.test(s)) return 'rural';
+  if (/tactical insertion|specialist group|remote community/.test(s)) return 'rural';
   if (/\boffender|containment|pursuit|police\b/.test(s)) return 'police';
   if (/structure fire|house fire|shed fire|building fire/.test(s)) return 'structurefire';
   if (/vehicle fire/.test(s)) return 'vehicleFire';
