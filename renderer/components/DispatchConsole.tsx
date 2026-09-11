@@ -18,7 +18,6 @@ import { jobs as jobsApi, useJobs, type AirTarget, type Channel, type JobPhase, 
 import { useAccount } from '../lib/account';
 import { isMuted, playAccept, playComplete, playNewCall, playPriorityCall, primeAudio, setMuted } from '../lib/audio';
 import { MenuBar } from './MenuBar';
-import { AccountBadge } from './AccountBadge';
 import { ScenePacksDialog } from './ScenePacksDialog';
 import { UpdateBanner, UpdateDialog } from './UpdateDialog';
 import { OptionsDialog } from './OptionsDialog';
@@ -1048,18 +1047,14 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
         )}
       </div>
 
-      {/* Status bar */}
+      {/* Status bar — this window's own state. Identity and the clock live in
+          the taskbar tray, where Windows puts them, rather than being repeated
+          here a few pixels above their twins. */}
       <div className={`win-statusbar ${faultText ? 'is-error' : ''}`}>
         <span className="grow" title={faultText ?? undefined}>
           {faultText ?? (detailJob ? `Viewing ${detailJob.kind}` : statusText)}
         </span>
         <span className="w-[130px]">{available.length} available</span>
-        <span className="flex w-[150px] items-center justify-center">
-          <AccountBadge account={account} />
-        </span>
-        <span className="w-[84px] text-center">
-          <StatusClock />
-        </span>
       </div>
 
       {scenePacksOpen && <ScenePacksDialog onClose={() => setScenePacksOpen(false)} />}
@@ -1252,17 +1247,6 @@ function DutyGate({
  * what threw "Minified React error #418/#425" (hydration mismatch) on every
  * launch. Empty on the first paint so server and client agree.
  */
-function StatusClock() {
-  const [now, setNow] = useState('');
-  useEffect(() => {
-    const tick = () => setNow(new Date().toLocaleTimeString([], { hour12: false }));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, []);
-  return <>{now}</>;
-}
-
 /** The shared job board — available jobs plus what other units are on. */
 function JobBoard({
   available,

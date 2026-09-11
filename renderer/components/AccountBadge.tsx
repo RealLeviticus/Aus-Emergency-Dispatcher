@@ -39,8 +39,8 @@ export function AccountBadge({ account }: { account: AccountApi }) {
     <div ref={ref} className="relative flex items-center">
       <button
         type="button"
-        // sits on the blue status bar, so hover lifts with a wash rather than navy-on-navy
-        className="flex items-center gap-1 px-1 hover:bg-white/25"
+        // sits in the grey taskbar tray, so it highlights the Win9x way
+        className="flex items-center gap-1 px-1 hover:bg-[#000080] hover:text-white"
         title={cur ? `${cur.name}${cur.role ? ` · ${cur.role}` : ''}` : 'No operator signed in'}
         onClick={() => setOpen((o) => !o)}
       >

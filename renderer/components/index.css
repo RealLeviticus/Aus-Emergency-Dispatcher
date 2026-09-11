@@ -158,29 +158,37 @@ pre,
     text-decoration: underline;
 }
 
+/* A real Win9x status bar: the window's own face, with sunken panels. It used
+   to be a navy-to-blue slab that echoed the title bar, which put a second band
+   of colour directly above the taskbar and competed with it. */
 .win-statusbar {
     display: flex;
     gap: 2px;
     padding: 2px;
-    /* Same navy-to-blue run as the title bar, so the frame reads as one piece. */
-    background: linear-gradient(to right, var(--w-navy), #1084d0);
-    color: #fff;
-}
-
-/* A real fault the operator should act on — see `faultText` in DispatchConsole. */
-.win-statusbar.is-error {
-    background: linear-gradient(to right, #7a0000, #c0392b);
+    background: var(--w-face);
+    color: var(--w-text);
+    border-top: 1px solid var(--w-hi);
 }
 
 .win-statusbar > span {
     padding: 2px 8px;
-    /* Inset edges drawn against the coloured bar rather than the grey face. */
+    /* Sunken against the grey face — light on the outside, shadow on the inside. */
     border: 1px solid;
-    border-color: rgba(0, 0, 0, 0.35) rgba(255, 255, 255, 0.28) rgba(255, 255, 255, 0.28) rgba(0, 0, 0, 0.35);
+    border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
 }
 
 .win-statusbar > span.grow {
     flex: 1;
+}
+
+/* A real fault the operator should act on — see `faultText` in DispatchConsole.
+   Only the message panel turns red, not the whole bar: it still cannot be
+   missed, without reinstating a full-width band of colour. */
+.win-statusbar.is-error > span.grow {
+    background: #7a0000;
+    color: #fff;
+    border-color: #4a0000 #b05050 #b05050 #4a0000;
+    font-weight: 700;
 }
 
 /* Buttons -------------------------------------------------------------------- */
@@ -345,8 +353,11 @@ pre,
 }
 
 .win-tasktray {
+    display: flex;
+    align-items: center;
+    gap: 2px;
     margin-left: auto;
-    padding: 3px 10px;
+    padding: 2px 8px;
     border: 1px solid;
     border-color: var(--w-lo) var(--w-hi) var(--w-hi) var(--w-lo);
 }
