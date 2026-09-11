@@ -85,14 +85,26 @@ const G: Record<string, string[]> = {
    * clinic staff, a dive buddy or the property owner — it must NOT resolve to
    * the injured/lying figures (which is what it used to do, so every
    * "firefighter" at a fire was a body face-down on the ground).
+   *
+   * Nor may it resolve to a 30West human. Every model in that pack is a Mixamo
+   * clip with `typeparam="AutoPlay"`, so it loops unconditionally and nothing we
+   * send over SimConnect can stop it — and the standing ones are big clips:
+   * `sam 5`/`sam 6` swing through 178 degrees over 22 seconds, `hhop` 176, and
+   * `Eve` is literally a file called EveDancing. That is the "everybody is
+   * dancing" report. The H145 pack's civilians are the opposite — 10 to 51
+   * degrees of weight-shift over the same sort of loop — so they go first.
+   * See MEASURED_HUMAN_MOTION below for the numbers and how to re-measure.
    */
-  worker: ['30West sam 5', '30West sam 6', '30West mac1', '30West hhop', '30West bald'],
+  worker: ['Airbus H145 Civilian 4', 'Airbus H145 Civilian 7', 'Airbus H145 Civilian 6', 'Airbus H145 Civilian 1'],
   // --- people: responders / bystanders ---
-  paramedic: ['30West paramedic', '30West cpr'],
+  // '30West paramedic' stays: it is a 23-degree idle, the calmest human in that
+  // pack and the only one that reads as someone standing and working.
+  paramedic: ['30West paramedic', 'Airbus H145 Civilian 2', 'Airbus H145 Civilian 1'],
+  // The one place a big clip is RIGHT: this model is performing compressions.
   cpr: ['30West cpr', '30West paramedic'],
-  officer: ['30West off', '30West sam 5', '30West sam 6'],
-  bystander: ['30West Eve', '30West hhop', '30West mac1', '30West mac3', '30West Grandpa', '30West Mother', '30West bald'],
-  family: ['30West Mother', '30West Grandpa', '30West Eve'],
+  officer: ['Airbus H145 Civilian 1', 'Airbus H145 Civilian 3', 'Airbus H145 Civilian 5'],
+  bystander: ['Airbus H145 Civilian 3', 'Airbus H145 Civilian 5', 'Airbus H145 Civilian 8', 'Airbus H145 Civilian 2', '30West Grandpa', '30West Mother'],
+  family: ['30West Mother', '30West Grandpa', 'Airbus H145 Civilian 6'],
   // --- fire / smoke ---
   fireSmall: ['Fire with Light 1', 'Fire with Light 2', 'Signal Flare'],
   fireBig: ['Fire with Light 3', 'Fire with Light 2'],
@@ -116,6 +128,36 @@ const G: Record<string, string[]> = {
   paraglider: ['30West Paraglider green crashed', '30West Paraglider redblue crashed', '30West Paraglider rb tree'],
 };
 
+/**
+ * Measured motion of every installed human model, so the choices above are not
+ * guesswork and can be re-checked when a pack updates.
+ *
+ * Method: read each model's glTF animation samplers and take the peak spread of
+ * root translation (does it travel?) and of joint rotation (does it flail?).
+ * Anything past ~120 degrees of rotation span reads as dancing at the distance
+ * a pilot sees it from.
+ *
+ *   30West_Humans (ALL AutoPlay, cannot be stopped):
+ *     sam_5 / sam_6   178 deg, 0.50 m   over 21.8 s   <- was `worker[0]`
+ *     hhop            176 deg, 0.37 m
+ *     EveDancing      123 deg, 0.59 m               <- was `bystander[0]`
+ *     cpr             129 deg, 0.09 m   (correct: chest compressions)
+ *     mac_1 / mac_3   121 deg, 0.42 m
+ *     officer         121 deg, 0.40 m               <- was `officer[0]`
+ *     bald             92 deg, seated gesturing
+ *     dazed            53 deg (fine — a dazed casualty should sway)
+ *     param            23 deg, 0.10 m   (calmest standing human in the pack)
+ *     dybald/dyworker  collapse animations, 0.9-1.6 m of travel (casualty only)
+ *
+ *   Standalone 30West models (their own folders, no AutoPlay clip at all):
+ *     Mother, Grandpa, Worker injured, ParamedicBox   0 deg — genuinely static
+ *
+ *   HPG H145 civilians 1-8: 10-51 deg, <= 0.31 m  — subtle weight shift
+ *   68ponyGT casualty poses (Female_*, Worker_*): 0 deg — genuinely static
+ *
+ * Re-measure with `node resources/_measure-human-motion.mjs` when a pack updates.
+ */
+
 /** App-shipped fallback models by the kind of thing the group represents. */
 function fallbacksFor(group: string): string[] {
   if (/^(wreckBus|trainCar|trainPower|heliWreck|planeWreck)/.test(group)) return ['AED_Wreck', 'AED_Truck'];
@@ -129,8 +171,7 @@ function fallbacksFor(group: string): string[] {
   if (/^stretcher/.test(group)) return ['AED_Casualty', 'AED_Medic'];
   if (/ambulance/i.test(group)) return ['AED_Ambulance', 'AED_FireTruck', 'FuelTruck'];
   if (/boat|raft|ship|rig/i.test(group)) return ['AED_Boat'];
-  if (/^(cas|worker|paramedic|cpr|officer|bystander|family)/.test(group))
-    return ['AED_Casualty', 'AED_Medic', 'Tarmac_Male_Summer_Caucasian'];
+  if (/^(cas|worker|paramedic|cpr|officer|bystander|family)/.test(group)) return ['AED_Casualty', 'AED_Medic'];
   if (/fire|smoke|flare/i.test(group)) return ['AED_SpotFire', 'AED_FireSeat'];
   if (/deer|horse|dog/i.test(group)) return ['AED_Casualty'];
   return ['AED_Cordon'];
@@ -203,6 +244,40 @@ const FX_GROUP = new Set(Object.keys(FX_NATIVE_2024));
 
 /** Titles whose built-in animation is wrong for any emergency scene. */
 const BANNED_ANIMATED = /^(Marshaller(_|$)|.*_Marshaller_)/i;
+
+/**
+ * How hard to "drive" a fire object, as a throttle percentage.
+ *
+ * The 68ponyGT fire objects are aircraft SimObjects whose flames are gated on
+ * their own throttle:
+ *
+ *   FX_CODE        ... (A:GENERAL ENG THROTTLE LEVER POSITION:1, percent) 0 >
+ *   FX_GRAPH_PARAM fire_level, (A:GENERAL ENG THROTTLE LEVER POSITION:1, percent)
+ *
+ * A SimObject spawned through SimConnect sits at throttle 0, so the effect
+ * emitted nothing and the flame geometry stayed hidden — which is exactly the
+ * "smoke works, no flames" symptom. Throttle is also the SIZE control; the
+ * model switches geometry at 4-11 / 10-21 / 20-31 percent, so these values pick
+ * a small, medium or large fire rather than just switching it on.
+ *
+ * The smoke objects are unaffected: their FX_CODE is `1 0 >`, always true, and
+ * that is why smoke was the half that worked.
+ */
+const FIRE_THROTTLE: Record<string, number> = {
+  fireSmall: 8,
+  fireBig: 25,
+  boatFire: 15,
+};
+
+/**
+ * The throttle a freshly spawned scene object needs to show its fire, or null
+ * for everything else. Keyed on the group, so it follows the object even when
+ * the title chain substitutes.
+ */
+export function fireThrottleFor(group: string): number | null {
+  const g = G[group] ? group : (LEGACY_ALIAS[group] ?? group);
+  return FIRE_THROTTLE[g] ?? null;
+}
 
 /**
  * Base-game MSFS 2024 SimObjects, by group — a free fallback so every scene has
@@ -296,6 +371,14 @@ const BASE_FIRST = new Set([
   'fleeTruck',
 ]);
 
+/**
+ * Groups that place a person standing up. These are the ones the "everybody is
+ * dancing" report was about, so they get the conservative title order.
+ * Casualty groups are excluded on purpose: those models are lying down, their
+ * animations are appropriate, and several are genuinely static.
+ */
+const STANDING_PEOPLE = new Set(['worker', 'paramedic', 'cpr', 'officer', 'bystander', 'family']);
+
 /** Legacy pool ids kept so old `scene-titles.json` keys still map to a group. */
 const LEGACY_ALIAS: Record<string, string> = {
   car: 'wreckCar',
@@ -325,14 +408,23 @@ export function groupTitles(group: string): string[] {
   // and for BASE_FIRST groups they beat the packs' stand-ins too.
   const base2024 = simProfile.msfs2024 ? (BASE_2024[g] ?? []) : [];
   const baseWins = base2024.length > 0 && BASE_FIRST.has(g);
+  // People on their feet put the app's own figures AHEAD of the base-game
+  // humans. The pack models chosen above are measured and calm, but they come
+  // from the H145 package rather than one of the three packs this app manages,
+  // so a user without it falls through — and the base-game stand-ins here are
+  // the airport ground crew, whose idle loops we cannot inspect from outside
+  // the sim and have no reason to trust after this. A static box figure is a
+  // worse model but it is never going to dance next to a fatality.
+  const staticFirst = STANDING_PEOPLE.has(g);
   let merged = [
     ...(ov[group] ?? []),
     ...(ov[g] ?? []),
     ...fxHead,
     ...(baseWins ? base2024 : []),
     ...(G[g] ?? []),
+    ...(staticFirst ? fallbacksFor(g) : []),
     ...(baseWins ? [] : base2024),
-    ...fallbacksFor(g),
+    ...(staticFirst ? [] : fallbacksFor(g)),
     WINDSOCK,
   ];
   if (isFx && !simProfile.msfs2024) merged = merged.filter((t) => !FX_2024_ONLY.test(String(t).trim()));

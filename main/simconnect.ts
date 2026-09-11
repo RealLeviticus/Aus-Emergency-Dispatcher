@@ -18,7 +18,14 @@ import {
 } from 'node-simconnect';
 import { liveryIndex } from './liveries';
 import { tdsGtnxi, writeDirectPln } from './gps';
-import { getSceneObjects, sceneForJob, sceneHeading, sceneObjectTitles, setSceneSimProfile } from './scenes';
+import {
+  fireThrottleFor,
+  getSceneObjects,
+  sceneForJob,
+  sceneHeading,
+  sceneObjectTitles,
+  setSceneSimProfile,
+} from './scenes';
 
 const EVT_BASE = 5000;
 const DEF_POSITION = 1;
@@ -39,6 +46,13 @@ const REQ_AIRPORTS = 7;
 // Fuel + cruise-speed, for an aircraft range estimate (its own request).
 const DEF_PERF = 8;
 const REQ_PERF = 8;
+
+/**
+ * Throttle on a spawned object. The scene packs' fire objects gate their flames
+ * on their own throttle lever, so lighting a fire means writing this after the
+ * sim hands back the object id (see `fireThrottleFor`).
+ */
+const DEF_FIRE = 9;
 const REQ_INJECT_BASE = 1000;
 const EARTH_RADIUS_M = 6378137;
 const NM_PER_DEG = 60;
@@ -209,6 +223,8 @@ export type InjectedObject = {
   /** airborne contact: feet AMSL and a track velocity */
   altFt?: number;
   speedKt?: number;
+  /** fire objects only: the throttle percent that makes them burn, and how big */
+  fireLevel?: number;
   /** airborne contact: a route to fly (waypoints); when unset it flies a constant track */
   route?: { lat: number; lon: number; altFt: number; speedKt: number }[];
   routeIdx?: number;
@@ -462,6 +478,12 @@ export class SimBridge extends EventEmitter {
       handle.addToDataDefinition(DEF_MOVE, 'PLANE BANK DEGREES', 'degrees', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_MOVE, 'AIRSPEED TRUE', 'knots', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(DEF_MOVE, 'VELOCITY BODY Z', 'feet per second', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(
+        DEF_FIRE,
+        'GENERAL ENG THROTTLE LEVER POSITION:1',
+        'percent',
+        SimConnectDataType.FLOAT64,
+      );
     } catch {
       /* ignore */
     }
@@ -622,6 +644,8 @@ export class SimBridge extends EventEmitter {
       if (!record) return;
       record.objectId = recv.objectID;
       this.spawnAt.delete(record.requestId);
+      // A fire object spawns at throttle 0, which means no flames at all.
+      this.writeFireLevel(record);
       for (const [sendId, r] of this.injectBySendId) if (r === record) this.injectBySendId.delete(sendId);
       // Start driving a moving contact the moment the sim confirms its id.
       if (record.isAircraft && (record.route || record.speedKt)) {
@@ -760,13 +784,19 @@ export class SimBridge extends EventEmitter {
       const east = obj.forwardM * Math.sin(hdgRad) + obj.rightM * Math.sin(hdgRad + Math.PI / 2);
       const lat = spec.lat + (north / EARTH_RADIUS_M) * (180 / Math.PI);
       const lon = spec.lon + (east / (EARTH_RADIUS_M * Math.cos((spec.lat * Math.PI) / 180))) * (180 / Math.PI);
-      const rec = this.spawn('local', sceneObjectTitles(obj), {
-        lat,
-        lon,
-        altitudeFt: groundFt,
-        headingDeg: (hdg + obj.headingOffsetDeg + 360) % 360,
-        onGround: true,
-      });
+      const fireLevel = fireThrottleFor(obj.group);
+      const rec = this.spawn(
+        'local',
+        sceneObjectTitles(obj),
+        {
+          lat,
+          lon,
+          altitudeFt: groundFt,
+          headingDeg: (hdg + obj.headingOffsetDeg + 360) % 360,
+          onGround: true,
+        },
+        fireLevel == null ? undefined : { fireLevel },
+      );
       rec.sceneKey = spec.sceneKey;
       out.push(rec);
     }
@@ -1264,11 +1294,31 @@ export class SimBridge extends EventEmitter {
     }
   }
 
+  /**
+   * Light a fire object.
+   *
+   * The pack's fire models read `GENERAL ENG THROTTLE LEVER POSITION:1` as both
+   * the on switch and the size of the blaze, so an object left at the spawn
+   * default of 0 renders nothing — no particles, no geometry. Written once the
+   * sim confirms the object id, and re-written if the object respawns onto a
+   * fallback title, since the substitute needs it just as much.
+   */
+  private writeFireLevel(rec: InjectedObject): void {
+    if (!this.handle || rec.objectId == null || rec.fireLevel == null) return;
+    const buf = new RawBuffer(64);
+    buf.writeFloat64(rec.fireLevel);
+    try {
+      this.handle.setDataOnSimObject(DEF_FIRE, rec.objectId, { buffer: buf, arrayCount: 1, tagged: false });
+    } catch {
+      /* the title that spawned may not be a pack fire object — harmless */
+    }
+  }
+
   private spawn(
     source: 'local' | 'remote',
     titles: string[],
     at: SpawnAt,
-    opts?: { isAircraft?: boolean; altFt?: number; speedKt?: number },
+    opts?: { isAircraft?: boolean; altFt?: number; speedKt?: number; fireLevel?: number },
   ): InjectedObject {
     const clean = Array.from(new Set(titles.map((t) => t.trim()).filter(Boolean)));
     const chain = clean.length ? clean : [...GENERIC_FALLBACKS];
@@ -1288,6 +1338,7 @@ export class SimBridge extends EventEmitter {
       isAircraft: opts?.isAircraft,
       altFt: opts?.altFt,
       speedKt: opts?.speedKt,
+      fireLevel: opts?.fireLevel,
     };
     this.injected.set(requestId, record);
     this.spawnAt.set(requestId, at);
