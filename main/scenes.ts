@@ -1073,25 +1073,50 @@ export function sceneObjectTitles(obj: SceneObjectSpec): string[] {
 
 export function sceneForJob(kind: string, category = ''): string {
   const s = `${kind} ${category}`.toLowerCase();
+
+  // RAAFv tasking is decided on CATEGORY first, before any civilian keyword can
+  // reach the words in the title: a "Combat Air Patrol — CAP Station" is an
+  // orbit, not a farm, and a "Tactical Reconnaissance Run" is not a grassfire.
+  if (/air defence|air mobility|strike \/ isr|isr \/ maritime/.test(category.toLowerCase())) {
+    if (/aeromedical|casevac/.test(s)) return 'airstrip';
+    if (/maritime|sovereignty|surface picture|isr orbit/.test(s)) return 'marine';
+    return 'marker';
+  }
+
+  // Transfers and evacuations come before the rural/fire keywords, or
+  // "Neonatal / Paediatric RETRIEVAL" lands on a cattle property. Matched on
+  // the KIND alone: the category "Aeromedical" is shared by jobs that land in
+  // a paddock or at a boat ramp, and matching it sent a rural retrieval and a
+  // diving incident to an airstrip.
+  const k = kind.toLowerCase();
+  if (/rfds|inter-hospital|neonatal|obstetric|burns|primary evacuation|aeromedical evacuation/.test(k)) return 'airstrip';
+
   if (/\bentrap|trapped\b/.test(s)) return 'entrapment';
-  if (/\bbus|coach\b/.test(s)) return 'bus';
+  // Both alternatives need their own boundaries: /\bbus|coach\b/ reads as
+  // (\bbus)|(coach\b), and \bbus happily matched "BUShland Search" — every
+  // missing-person job was getting a bus rollover, 22 objects of it.
+  if (/\bbus\b|\bcoach\b/.test(s)) return 'bus';
   if (/level crossing|train vs|vs train|rail crossing/.test(s)) return 'levelcrossing';
   if (/swiftwater|flood rescue|floodwater/.test(s)) return 'swiftwater';
   if (/vessel .*fire|boat .*fire|rig fire|marine .*fire/.test(s)) return 'marinefire';
   if (/search and rescue|distress beacon|search.*datum/.test(s)) return 'sar';
-  if (/\bmarine|vessel|overboard|epirb|maritime|diving|decompression\b/.test(s)) return /diving|decompression/.test(s) ? 'diving' : 'marine';
+  if (/\bdiving\b|decompression|\bdci\b/.test(s)) return 'diving';
+  if (/\bmarine\b|vessel|overboard|epirb|maritime/.test(s)) return 'marine';
   if (/\bcliff|abseil|rock platform|coastal .*rescue|surf\b/.test(s)) return 'winch';
   if (/heli.*crash|aircraft crash|plane crash|agricultural aircraft/.test(s)) return 'helicrash';
+  // Missing-person searches before the police catch-all: both are police
+  // aviation, but one is a cordon and the other is a grid over bushland.
+  if (/missing person|bushwalker|bushland search|dementia/.test(s)) return 'search';
   if (/\boffender|containment|pursuit|police\b/.test(s)) return 'police';
-  if (/missing person|bushwalker|search \/ off|dementia/.test(s)) return 'search';
   if (/structure fire|house fire|shed fire|building fire/.test(s)) return 'structurefire';
   if (/vehicle fire/.test(s)) return 'vehicleFire';
-  if (/\bfire|bushfire|grass ?fire|air attack|mapping|crew insertion|reconnaissance|line ?scan\b/.test(s)) return 'grassfire';
+  // Storm damage is an SES job over farmland and townships, not a fire.
+  if (/storm damage|hail|flash-flood/.test(s)) return 'rural';
+  if (/\bfire|bushfire|grass ?fire|air attack|mapping|crew insertion|line ?scan\b/.test(s)) return 'grassfire';
   if (/powerline|electrocution|electrical contact/.test(s)) return 'powerline';
-  if (/mine|quarry|industrial|construction|silo|machinery entangle/.test(s)) return 'industrial';
+  if (/\bmine\b|quarry|industrial|construction|silo|machinery entangle/.test(s)) return 'industrial';
   if (/\b(mva|mvc|mvac|vehicle accident|motor vehicle|collision|crash|rta)\b/.test(s)) return 'mva';
-  if (/diving|decompression|dci/.test(s)) return 'diving';
-  if (/retrieval|property|farm|station|paddock|envenom|snakebite/.test(s)) return 'rural';
-  if (/rfds|evacuation|inter-hospital|transfer|airstrip|aeromedical|neonatal|obstetric|burns/.test(s)) return 'airstrip';
+  if (/retrieval|property|farm|\bstation\b|paddock|envenom|snakebite/.test(s)) return 'rural';
+  if (/transfer|airstrip/.test(s)) return 'airstrip';
   return 'marker';
 }
