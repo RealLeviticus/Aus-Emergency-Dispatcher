@@ -8,6 +8,10 @@ export type SyncStatus = {
   sessionId: string | null;
   peers: number;
   lastError: string | null;
+  /** The id the SERVER registered us under. "Is this job mine?" must compare
+   *  against this, not a display name — with operator profiles gone, every
+   *  client reports the same name and names no longer identify anyone. */
+  clientId: string;
 };
 
 export type RemoteObject = {
@@ -79,7 +83,7 @@ export class SyncClient extends EventEmitter {
     this.effectiveClientId = clientId;
     this.url = opts?.url || process.env.DISPATCHER_SYNC_URL || DEFAULT_SYNC_URL;
     this.token = opts?.token || process.env.DISPATCHER_SYNC_TOKEN || '';
-    this.status = { connected: false, url: this.url, sessionId: null, peers: 0, lastError: null };
+    this.status = { connected: false, url: this.url, sessionId: null, peers: 0, lastError: null, clientId };
   }
 
   getStatus(): SyncStatus {
@@ -343,7 +347,7 @@ export class SyncClient extends EventEmitter {
       case 'welcome': {
         this.helloedSession = (msg.sessionId as string) ?? null;
         this.effectiveClientId = (msg.clientId as string) || this.clientId;
-        this.patch({ connected: true, sessionId: this.helloedSession, lastError: null });
+        this.patch({ connected: true, sessionId: this.helloedSession, lastError: null, clientId: this.effectiveClientId });
         break;
       }
       case 'snapshot': {

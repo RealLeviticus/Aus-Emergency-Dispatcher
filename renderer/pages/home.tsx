@@ -4,8 +4,7 @@ import { SplashProfileId } from '../config/splash';
 import DispatchConsole from '../components/DispatchConsole';
 import { ScenePacksDialog } from '../components/ScenePacksDialog';
 import { CrewCentreDialog } from '../components/CrewCentreDialog';
-import { AccountBadge } from '../components/AccountBadge';
-import { account, useAccount } from '../lib/account';
+import { account } from '../lib/account';
 import { sim } from '../lib/sim';
 
 type AppId = 'emergency' | 'raafv';
@@ -104,7 +103,6 @@ export default function Home() {
   const [clock, setClock] = useState('');
   const [crewDialog, setCrewDialog] = useState(false);
   const [packPrompt, setPackPrompt] = useState(false);
-  const operator = useAccount();
 
   // On launch, if a required scene-object pack is missing (and the user hasn't
   // opted out), show the setup dialog so they can install packs before flying.
@@ -278,13 +276,9 @@ export default function Home() {
             </button>
           )}
 
-          {/* System tray: who is on console, then the clock — the two things
-              Windows keeps here, and the two the status bar used to duplicate. */}
-          <div className="win-tasktray">
-            <AccountBadge account={operator} />
-            <span className="mx-1 h-4 w-[1px]" style={{ background: 'var(--w-lo)', boxShadow: '1px 0 0 var(--w-hi)' }} />
-            <span>{clock}</span>
-          </div>
+          {/* System tray: just the clock. There are no operator profiles to
+              sign in to — RAAFv is unlocked from the locked taskbar item. */}
+          <div className="win-tasktray">{clock}</div>
         </div>
 
         {startOpen && (

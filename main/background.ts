@@ -9,7 +9,6 @@ import Store from 'electron-store';
 import { createWindow } from './helpers';
 import { simBridge, OBJECT_PRESETS, type SimStatus } from './simconnect';
 import { SCENE_LIST, reloadSceneTitleOverrides } from './scenes';
-import { accounts } from './accounts';
 import { autoInstallIfMissing, installPackage, packageStatus } from './packages';
 import {
   ADDON_PACKS,
@@ -19,11 +18,12 @@ import {
   openPacksFolder,
 } from './addonpacks';
 import { contactTitles, fsltlStatus } from './fsltl';
-import { isConfigured as discordOauthConfigured, linkDiscord } from './discord-oauth';
 import {
   getConfig as phpvmsConfig,
   hasStoredKey as hasStoredRaafvKey,
+  linkedPilot,
   linkPhpvms,
+  raafvGranted,
   revalidate as revalidatePhpvms,
   unlinkPhpvms,
 } from './phpvms-auth';
@@ -72,7 +72,6 @@ if (!syncClientId || (storedHost && storedHost !== thisHost)) {
 if (storedHost !== thisHost) identity.set('syncClientHost', thisHost);
 
 const syncClient = new SyncClient(syncClientId, { url: DEFAULT_SYNC_URL, token: '' });
-syncClient.setOperatorName(accounts.current()?.name ?? 'Operator');
 
 // --- shared job pool (server-generated tasking) -----------------------
 type ServerJob = { id: string; status: string; [k: string]: unknown };
@@ -200,7 +199,6 @@ function discordCtx(connected: boolean) {
     callsign: currentCallsign(),
     aircraft: p?.atcModel || p?.atcType || p?.aircraftTitle || '',
     rotary: p ? p.engineType === 3 : undefined,
-    operator: accounts.current()?.name,
     ...missionContext,
   };
 }
@@ -508,61 +506,27 @@ ipcMain.handle('getAppVersion', () => app.getVersion());
 // existing preferences file is simply no longer read.
 ipcMain.handle('getEntitlements', () => ({
   emergency: true,
-  raafv: accounts.current()?.entitlements?.raafv === true,
+  raafv: raafvGranted(),
 }));
-ipcMain.handle('auth:discordConfigured', () => discordOauthConfigured());
 function notifyEntitlements(): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('entitlements:changed', null);
 }
-ipcMain.handle('auth:discordLink', async () => {
-  const cur = accounts.current();
-  if (!cur) return { ok: false, error: 'Sign in to a local operator profile first.' };
-  const res = await linkDiscord();
-  if (res.ok && res.user) {
-    // Discord no longer unlocks RAAFv. Holding a role in a Discord server says
-    // someone is in that server; it does not say they are a pilot on the RAAFv
-    // roster, which is what the crew centre key actually proves. The link stays
-    // for identity, but the entitlement comes from the crew centre alone.
-    accounts.setDiscord(cur.id, { discord: res.user, raafv: false });
-    notifyEntitlements();
-  }
-  return { ...res, raafv: false, roleReason: 'Discord no longer unlocks RAAFv — sign in with your crew centre key.' };
-});
-ipcMain.handle('auth:discordUnlink', () => {
-  const cur = accounts.current();
-  if (cur) accounts.setDiscord(cur.id, null);
-  notifyEntitlements();
-  return accounts.current();
-});
 
 // --- RAAFv crew centre (phpVMS) sign-in -------------------------------
+// The only identity in the app. There are no operator profiles: the crew
+// centre key is what proves who you are, and it is the only thing that opens
+// RAAFv tasking.
 ipcMain.handle('auth:phpvmsConfig', () => phpvmsConfig());
+ipcMain.handle('auth:phpvmsPilot', () => linkedPilot());
 ipcMain.handle('auth:phpvmsLink', async (_e, apiKey: string) => {
   const res = await linkPhpvms(apiKey);
-  if (!res.ok || !res.user) return res;
-  // The key alone is enough to get in. If there is no local operator yet, make
-  // one from the verified crew centre profile rather than sending the pilot off
-  // to fill in a form first — we already know their name and pilot ident.
-  const cur =
-    accounts.current() ??
-    accounts.create({
-      name: res.user.username,
-      callsign: res.user.ident ?? '',
-      role: res.user.rank ?? 'RAAFv pilot',
-    });
-  accounts.setPhpvms(cur.id, {
-    phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
-    raafv: Boolean(res.raafv),
-  });
-  notifyEntitlements();
+  if (res.ok) notifyEntitlements();
   return res;
 });
 ipcMain.handle('auth:phpvmsUnlink', () => {
   unlinkPhpvms();
-  const cur = accounts.current();
-  if (cur) accounts.setPhpvms(cur.id, null);
   notifyEntitlements();
-  return accounts.current();
+  return true;
 });
 
 /**
@@ -574,19 +538,7 @@ ipcMain.handle('auth:phpvmsUnlink', () => {
 async function revalidateRaafv(): Promise<void> {
   if (!hasStoredRaafvKey()) return;
   const res = await revalidatePhpvms();
-  const cur = accounts.current();
-  if (!res || !cur) return;
-  if (res.ok && res.user) {
-    accounts.setPhpvms(cur.id, {
-      phpvms: { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank },
-      raafv: Boolean(res.raafv),
-    });
-  } else if (/did not accept/i.test(res.error ?? '')) {
-    accounts.setPhpvms(cur.id, null);
-  } else {
-    return; // transient (offline, crew centre down) — leave things as they are
-  }
-  notifyEntitlements();
+  if (res) notifyEntitlements();
 }
 
 ipcMain.handle('getSplashProfile', () => preferences.get('splashProfile', 'emergency'));
@@ -661,33 +613,6 @@ ipcMain.handle('jobs:release', (_e, jobId: string) => syncClient.releaseJob(jobI
 ipcMain.handle('jobs:start', (_e, jobId: string) => syncClient.startJob(jobId));
 ipcMain.handle('jobs:progress', (_e, jobId: string, phase: string) => syncClient.jobProgress(jobId, phase));
 ipcMain.handle('jobs:complete', (_e, jobId: string) => syncClient.completeJob(jobId));
-
-// --- operator accounts (local profiles) --------------------------------
-function syncOperatorName(): void {
-  syncClient.setOperatorName(accounts.current()?.name ?? 'Operator');
-}
-ipcMain.handle('account:list', () => accounts.list());
-ipcMain.handle('account:current', () => accounts.current());
-ipcMain.handle('account:create', (_e, input: { name: string; callsign?: string; role?: string }) => {
-  const a = accounts.create(input ?? { name: 'Operator' });
-  syncOperatorName();
-  return a;
-});
-ipcMain.handle('account:update', (_e, id: string, patch: { name?: string; callsign?: string; role?: string }) => {
-  const a = accounts.update(id, patch ?? {});
-  syncOperatorName();
-  return a;
-});
-ipcMain.handle('account:switch', (_e, id: string | null) => {
-  const a = accounts.switch(id ?? null);
-  syncOperatorName();
-  return a;
-});
-ipcMain.handle('account:delete', (_e, id: string) => {
-  accounts.remove(id);
-  syncOperatorName();
-  return accounts.list();
-});
 
 // --- app / window helpers for the menu bar ----------------------------
 ipcMain.handle('app:openDataFolder', async () => {

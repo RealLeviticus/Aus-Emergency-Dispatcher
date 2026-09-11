@@ -24,8 +24,22 @@ import { DEFAULT_SYNC_URL } from './syncclient';
  * real needs a server-issued session presented on the websocket.
  */
 
-type Shape = { key: string | null; encrypted: boolean };
-const store = new Store<Shape>({ name: 'raafv', defaults: { key: null, encrypted: false } });
+type Pilot = { id: string; ident: string | null; username: string; rank: string | null };
+type Shape = { key: string | null; encrypted: boolean; granted: boolean; pilot: Pilot | null };
+const store = new Store<Shape>({ name: 'raafv', defaults: { key: null, encrypted: false, granted: false, pilot: null } });
+
+/**
+ * RAAFv access lives here rather than on a local operator profile: the crew
+ * centre key IS the identity, so the entitlement belongs beside it. There are
+ * no operator profiles any more.
+ */
+export function raafvGranted(): boolean {
+  return store.get('granted', false) === true;
+}
+
+export function linkedPilot(): Pilot | null {
+  return store.get('pilot', null);
+}
 
 export type PhpvmsUser = {
   id: string;
@@ -83,6 +97,15 @@ function readKey(): string | null {
 function clearKey(): void {
   store.set('key', null);
   store.set('encrypted', false);
+  store.set('granted', false);
+  store.set('pilot', null);
+}
+
+/** Remember what the crew centre said about this key. */
+function remember(res: PhpvmsLinkResult): void {
+  if (!res.ok || !res.user) return;
+  store.set('granted', Boolean(res.raafv));
+  store.set('pilot', { id: res.user.id, ident: res.user.ident, username: res.user.username, rank: res.user.rank });
 }
 
 export function hasStoredKey(): boolean {
@@ -126,7 +149,10 @@ export async function linkPhpvms(apiKey: string): Promise<PhpvmsLinkResult> {
   const key = String(apiKey ?? '').trim();
   if (!key) return { ok: false, error: 'Enter your crew centre API key.' };
   const res = await verify(key);
-  if (res.ok) saveKey(key);
+  if (res.ok) {
+    saveKey(key);
+    remember(res);
+  }
   return res;
 }
 
@@ -140,8 +166,9 @@ export async function revalidate(): Promise<PhpvmsLinkResult | null> {
   const key = readKey();
   if (!key) return null;
   const res = await verify(key);
+  if (res.ok) remember(res);
   // Only a definite rejection drops the key; anything else may be transient.
-  if (!res.ok && /did not accept/i.test(res.error ?? '')) clearKey();
+  else if (/did not accept/i.test(res.error ?? '')) clearKey();
   return res;
 }
 

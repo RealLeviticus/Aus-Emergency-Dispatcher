@@ -1,21 +1,9 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { SplashProfileId } from '../config/splash';
-import {
-  formatEta,
-  formatLatLon,
-  rangeBearing,
-  sim,
-  useSimStatus,
-  useSyncPeers,
-  type GpsStatus,
-  type PeerPresence,
-  type SimPosition,
-  type SimStatus,
-} from '../lib/sim';
+import { formatEta, formatLatLon, rangeBearing, sim, useSimStatus, useSyncPeers, type GpsStatus, type PeerPresence, type SimPosition, type SimStatus, useSyncStatus } from '../lib/sim';
 import { classifyAircraft, type Airport, type Call, type Hospital, type Priority } from '../lib/jobgen';
 import { jobs as jobsApi, useJobs, type AirTarget, type Channel, type JobPhase, type ServerJob } from '../lib/jobs';
-import { useAccount } from '../lib/account';
 import { isMuted, playAccept, playComplete, playNewCall, playPriorityCall, primeAudio, setMuted } from '../lib/audio';
 import { MenuBar } from './MenuBar';
 import { ScenePacksDialog } from './ScenePacksDialog';
@@ -201,8 +189,10 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const [, setTick] = useState(0);
   const claimIdsRef = useRef<Set<string>>(new Set());
 
-  const account = useAccount();
-  const myName = account.current?.name ?? 'Operator';
+  // Identity is the sync client id the server registered us under. Display
+  // names no longer identify anyone: with operator profiles gone every client
+  // reports "Operator", so matching on name would make a peer's job look mine.
+  const myId = useSyncStatus().clientId ?? '';
 
   useEffect(() => {
     const id = window.setInterval(() => setTick((t) => t + 1), 1000);
@@ -256,8 +246,8 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const isMine = useCallback(
     (j: ServerJob) =>
       claimIdsRef.current.has(j.id) ||
-      (j.status !== 'available' && (j.claimedByName === myName || (j.party ?? []).some((p) => p.name === myName))),
-    [myName],
+      (j.status !== 'available' && (j.claimedBy === myId || (j.party ?? []).some((p) => p.clientId === myId))),
+    [myId],
   );
   const available = useMemo(
     () => pool.filter((j) => j.status === 'available').sort((a, b) => a.createdAt - b.createdAt),
@@ -349,7 +339,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
 
   const boardReady = hasFix && Boolean(base);
   // The board is always readable. Acting on a job is what needs the sim: you
-  // cannot fly to a call you aren't loaded for, and claiming one you can't run
+  // cannot fly to a call you aren't loaded for, and accepting one you can't run
   // holds it away from crews who can.
   const canAct = onDuty && Boolean(base);
   // Written from an effect rather than during render: the audio gate only needs
@@ -358,11 +348,11 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
     canActRef.current = canAct;
   }, [canAct]);
   const gateReason = !simStatus.connected
-    ? 'Load into Microsoft Flight Simulator to claim jobs'
+    ? 'Load into Microsoft Flight Simulator to accept jobs'
     : !hasFix
       ? 'Waiting for a position fix from the sim'
       : !base
-        ? 'Set your operating base to claim jobs'
+        ? 'Set your operating base to accept jobs'
         : null;
 
   const startJob = useCallback(
@@ -528,7 +518,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
   const sceneDoneRef = useRef<string | null>(null); // jobId we've placed the ground scene for
   // Am I the lead of my current call? (lead / solo places the scene; others mirror.)
   const leadRef = useRef(true);
-  leadRef.current = !myJob || !myJob.party?.length || myJob.party[0]?.name === myName || myJob.claimedByName === myName;
+  leadRef.current = !myJob || !myJob.party?.length || myJob.party[0]?.clientId === myId || myJob.claimedBy === myId;
 
   // Auto-spawn: the moment a job is active + the sim is up, put what it needs in
   // the world. Intercept targets spawn now (they hold); ground scenes spawn when
@@ -799,9 +789,6 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
           {
             label: 'File',
             items: [
-              account.current
-                ? { label: `Sign out (${account.current.name})`, onClick: () => void account.signOut() }
-                : { label: 'Sign in…', disabled: true },
               { label: 'Open data folder', onClick: () => void window.ipc?.invoke?.('app:openDataFolder') },
               { label: 'Options…', onClick: () => setOptionsOpen(true) },
               'separator',
@@ -875,10 +862,6 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
       <div className="win-underline flex flex-wrap items-center gap-x-2 gap-y-1 px-2 py-1">
         <span className="text-[#404040]">
           Duty <b className={onDuty ? 'text-black' : 'text-[#a00000]'}>{onDuty ? 'ON (sim loaded)' : 'OFF'}</b>
-        </span>
-        <Sep />
-        <span className="text-[#404040]">
-          Operator <b className="text-black">{myName}</b>
         </span>
         <Sep />
         <span className="text-[#404040]">
@@ -987,7 +970,7 @@ export default function DispatchConsole(props: { profileId: SplashProfileId; dem
             call={detailCall}
             canAccept={canClaimDetail}
             blockedReason={gateReason ?? (detailJob.status !== 'available' ? 'This job is already taken.' : null)}
-            acceptLabel="Claim Job"
+            acceptLabel="Accept Job"
             onAccept={() => claim(detailJob)}
             onBack={() => setDetailJobId(null)}
             aircraft={hasFix ? simStatus.position : null}
@@ -1130,12 +1113,12 @@ function OnWatch({
         )}
         <p className="mt-2 border-t border-[#808080] pt-2 text-[#404040]">
           {myJob
-            ? 'Job claimed. Load into the sim, then Start Job to launch from base.'
+            ? 'Job accepted. Load into the sim, then Start Job to launch from base.'
             : !simStatus.connected
-              ? 'Browse and claim jobs now; loading the sim puts you on duty.'
+              ? 'Browse jobs now; loading the sim lets you accept one.'
               : !hasFix
                 ? 'Simulator connected — waiting for a position fix.'
-                : 'On duty. Claim a job from the board, then Start Job.'}
+                : 'On duty. Accept a job from the board, then Start Job.'}
         </p>
       </GroupBox>
 
@@ -1464,9 +1447,9 @@ function JobBoard({
           className="win-btn is-default"
           disabled={!selected || Boolean(myJob) || !canAct}
           onClick={() => selected && onClaim(selected)}
-          title={!canAct ? (gateReason ?? 'Not on duty') : myJob ? 'Leave your current call first' : 'Claim this job'}
+          title={!canAct ? (gateReason ?? 'Not on duty') : myJob ? 'Leave your current call first' : 'Accept this job'}
         >
-          Claim Job
+          Accept Job
         </button>
         <button type="button" className="win-btn" disabled={!selected} onClick={() => selected && onOpen(selected.id)}>
           Details

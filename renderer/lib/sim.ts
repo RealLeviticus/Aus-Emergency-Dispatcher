@@ -63,6 +63,9 @@ export type SyncStatus = {
   sessionId: string | null;
   peers: number;
   lastError: string | null;
+  /** Id the server registered this install under — the only reliable way to
+   *  tell your own job from a peer's now that display names are gone. */
+  clientId: string;
 };
 
 export const EMPTY_SIM_STATUS: SimStatus = {
@@ -80,6 +83,7 @@ export const EMPTY_SYNC_STATUS: SyncStatus = {
   sessionId: null,
   peers: 0,
   lastError: null,
+  clientId: '',
 };
 
 function useIpcStatus<T>(getChannel: string, pushChannel: string, empty: T): T {

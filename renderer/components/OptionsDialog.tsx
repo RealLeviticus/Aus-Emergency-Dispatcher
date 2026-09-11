@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { isMuted, setMuted } from '../lib/audio';
 import { sim } from '../lib/sim';
+import { account, usePilot } from '../lib/account';
+import { CrewCentreDialog } from './CrewCentreDialog';
 import { updates, useUpdateState } from '../lib/updates';
 import type { SplashProfileId } from '../config/splash';
 
@@ -19,6 +21,8 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
   const [profile, setProfile] = useState<SplashProfileId>('emergency');
   const [packPrompt, setPackPrompt] = useState(true);
   const update = useUpdateState();
+  const { pilot, refresh: refreshPilot } = usePilot();
+  const [crewDialog, setCrewDialog] = useState(false);
 
   useEffect(() => {
     setMutedUi(isMuted());
@@ -145,6 +149,38 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
           </fieldset>
 
           <fieldset className="win-group mb-2 p-2">
+            <legend className="px-1">RAAFv access</legend>
+            {pilot ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span>
+                  Signed in as <b>{pilot.username}</b>
+                  {pilot.ident ? ` (${pilot.ident})` : ''}
+                  {pilot.rank ? ` — ${pilot.rank}` : ''}
+                </span>
+                <button
+                  type="button"
+                  className="win-btn ml-auto px-3 py-0"
+                  onClick={async () => {
+                    await account.unlinkPhpvms();
+                    await refreshPilot();
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[#606060]">
+                  Not signed in — RAAFv Tasking stays locked.
+                </span>
+                <button type="button" className="win-btn ml-auto px-3 py-0" onClick={() => setCrewDialog(true)}>
+                  Sign in…
+                </button>
+              </div>
+            )}
+          </fieldset>
+
+          <fieldset className="win-group mb-2 p-2">
             <legend className="px-1">Files</legend>
             <div className="flex flex-wrap gap-2">
               <button
@@ -159,7 +195,7 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
                 type="button"
                 className="win-btn px-3 py-0"
                 onClick={() => void window.ipc?.invoke?.('app:openUserData')}
-                title="Settings, operator accounts and logs"
+                title="Settings, sign-in and logs"
               >
                 Open app data
               </button>
@@ -173,6 +209,16 @@ export function OptionsDialog({ onClose }: { onClose: () => void }) {
             </div>
           </fieldset>
         </div>
+
+        {crewDialog && (
+          <CrewCentreDialog
+            onClose={() => {
+              setCrewDialog(false);
+              void refreshPilot();
+            }}
+            onSubmit={(key) => account.linkPhpvms(key)}
+          />
+        )}
 
         <div className="flex justify-end border-t border-[#808080] p-2">
           <button type="button" className="win-btn px-4 py-[2px]" onClick={onClose}>
